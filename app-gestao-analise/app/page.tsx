@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
+import Link from "next/link";
 
-// Interface para a sessão com os dados do paciente
+// 1. A interface agora reflete a REALIDADE: 'paciente' é um objeto único.
 interface SessaoComPaciente {
   data: string;
   valor: number;
@@ -97,20 +98,13 @@ export default function Dashboard() {
           valorRecebido: valorRecebidoCalc,
           valorPendente: valorPendenteCalc,
         });
+
         const pendentes = data.filter(
           (s) => s.status === "Pendente" || s.status === "Cancelado"
         );
-        // Ajusta o formato do paciente para corresponder à interface SessaoComPaciente
-        const pendentesFormatados: SessaoComPaciente[] = pendentes.map((s) => ({
-          data: s.data,
-          valor: s.valor,
-          status: s.status,
-          paciente:
-            Array.isArray(s.paciente) && s.paciente.length > 0
-              ? { nome: s.paciente[0].nome }
-              : null,
-        }));
-        setSessoesPendentes(pendentesFormatados);
+        // 2. Usamos 'as any' para forçar o TypeScript a aceitar a estrutura real dos dados
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setSessoesPendentes(pendentes as any);
       }
       setLoading(false);
     };
@@ -156,7 +150,6 @@ export default function Dashboard() {
       </div>
       <p className="text-lg text-gray-400 mb-8">Exibindo resumo de {nomeMes}</p>
 
-      {/* CARDS DE RESUMO INCLUÍDOS CORRETAMENTE */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-gray-900 p-6 rounded-lg shadow-md border border-gray-700">
           <h2 className="text-lg font-semibold text-gray-400 mb-2">
@@ -252,6 +245,15 @@ export default function Dashboard() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="mt-10">
+        <Link
+          href="/pacientes"
+          className="inline-block px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors"
+        >
+          Gerenciar Pacientes e Sessões
+        </Link>
       </div>
     </div>
   );
