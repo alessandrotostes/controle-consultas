@@ -28,8 +28,8 @@ export default function Sidebar() {
         <div className="flex items-center p-2 border-t border-gray-700">
           <span className="mr-3">👤</span>
           <div>
-            <p className="font-semibold">Tauana Pavanelli</p>
-            <p className="text-sm text-gray-400">Psicanalista</p>
+            <p className="font-semibold"> Nome do Profissional</p>
+            <p className="text-sm text-gray-400">Profissão</p>
           </div>
         </div>
       </div>
