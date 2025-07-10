@@ -24,3 +24,7 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+body {
+  background-color: #111827; /* Um cinza-azulado bem escuro, mais suave que o preto */
+  color: #e5e7eb; /* Um cinza bem claro para o texto padrão */
+}

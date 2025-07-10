@@ -2,16 +2,24 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
-import Link from "next/link";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 
-// 1. A interface agora reflete a REALIDADE: 'paciente' é um objeto único.
+interface Paciente {
+  nome: string;
+}
 interface SessaoComPaciente {
   data: string;
   valor: number;
   status: string;
-  paciente: {
-    nome: string;
-  } | null;
+  paciente: Paciente | null;
 }
 
 export default function Dashboard() {
@@ -24,6 +32,8 @@ export default function Dashboard() {
   const [sessoesPendentes, setSessoesPendentes] = useState<SessaoComPaciente[]>(
     []
   );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [dadosGrafico, setDadosGrafico] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [nomeMes, setNomeMes] = useState("");
   const [anoSelecionado, setAnoSelecionado] = useState(
@@ -46,10 +56,25 @@ export default function Dashboard() {
     "Novembro",
     "Dezembro",
   ];
+  const nomesAbreviadosDosMeses = [
+    "Jan",
+    "Fev",
+    "Mar",
+    "Abr",
+    "Mai",
+    "Jun",
+    "Jul",
+    "Ago",
+    "Set",
+    "Out",
+    "Nov",
+    "Dez",
+  ];
 
   useEffect(() => {
-    const fetchMonthlyData = async () => {
+    const fetchData = async () => {
       setLoading(true);
+
       const primeiroDiaDoMes = new Date(anoSelecionado, mesSelecionado, 1);
       const ultimoDiaDoMes = new Date(anoSelecionado, mesSelecionado + 1, 0);
       const dataDeReferencia = new Date(anoSelecionado, mesSelecionado, 1);
@@ -61,31 +86,37 @@ export default function Dashboard() {
         nomeDoMesAtual.charAt(0).toUpperCase() + nomeDoMesAtual.slice(1)
       );
 
-      const { data, error } = await supabase
+      const { data: dataMes, error: errorMes } = await supabase
         .from("sessoes")
         .select("data, valor, status, paciente:pacientes(nome)")
         .gte("data", primeiroDiaDoMes.toISOString())
-        .lte("data", ultimoDiaDoMes.toISOString())
-        .order("data", { ascending: true });
+        .lte("data", ultimoDiaDoMes.toISOString());
 
-      if (error) {
-        console.error("Erro ao buscar dados do mês:", error);
-      } else if (data) {
+      const primeiroDiaDoAno = new Date(anoSelecionado, 0, 1);
+      const ultimoDiaDoAno = new Date(anoSelecionado, 11, 31);
+      const { data: dataAno, error: errorAno } = await supabase
+        .from("sessoes")
+        .select("data, valor")
+        .eq("status", "Paga")
+        .gte("data", primeiroDiaDoAno.toISOString())
+        .lte("data", ultimoDiaDoAno.toISOString());
+
+      if (errorMes || errorAno) {
+        console.error("Erro ao buscar dados:", errorMes || errorAno);
+      } else {
         let valorRecebidoCalc = 0,
           valorPendenteCalc = 0,
           sessoesRealizadasCount = 0,
           sessoesAgendadasCount = 0;
         const dataDeHoje = new Date();
         dataDeHoje.setHours(0, 0, 0, 0);
-
-        for (const sessao of data) {
+        for (const sessao of dataMes) {
           if (sessao.status === "Paga") valorRecebidoCalc += sessao.valor;
           else if (
             sessao.status === "Pendente" ||
             sessao.status === "Cancelado"
           )
             valorPendenteCalc += sessao.valor;
-
           if (sessao.status !== "Cancelado") {
             const dataSessao = new Date(sessao.data + "T00:00:00Z");
             if (dataSessao <= dataDeHoje) sessoesRealizadasCount++;
@@ -98,18 +129,25 @@ export default function Dashboard() {
           valorRecebido: valorRecebidoCalc,
           valorPendente: valorPendenteCalc,
         });
-
-        const pendentes = data.filter(
+        const pendentes = dataMes.filter(
           (s) => s.status === "Pendente" || s.status === "Cancelado"
         );
-        // 2. Usamos 'as any' para forçar o TypeScript a aceitar a estrutura real dos dados
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setSessoesPendentes(pendentes as any);
+
+        const totaisMensais = Array(12).fill(0);
+        for (const sessao of dataAno) {
+          const mesDaSessao = new Date(sessao.data + "T00:00:00Z").getMonth();
+          totaisMensais[mesDaSessao] += sessao.valor;
+        }
+        const dadosFormatadosGrafico = nomesAbreviadosDosMeses.map(
+          (nome, index) => ({ name: nome, Receita: totaisMensais[index] })
+        );
+        setDadosGrafico(dadosFormatadosGrafico);
       }
       setLoading(false);
     };
-
-    fetchMonthlyData();
+    fetchData();
   }, [anoSelecionado, mesSelecionado]);
 
   if (loading)
@@ -149,42 +187,68 @@ export default function Dashboard() {
         </div>
       </div>
       <p className="text-lg text-gray-400 mb-8">Exibindo resumo de {nomeMes}</p>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-gray-900 p-6 rounded-lg shadow-md border border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-400 mb-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+        <div className="bg-gray-900/50 backdrop-blur-sm p-4 md:p-6 rounded-xl shadow-lg border border-gray-700/50">
+          <h2 className="text-base md:text-lg font-semibold text-gray-400 mb-2">
             Sessões Realizadas
           </h2>
-          <p className="text-4xl font-bold text-white">
+          <p className="text-3xl md:text-4xl font-bold text-white">
             {stats.sessoesRealizadas}
           </p>
         </div>
-        <div className="bg-gray-900 p-6 rounded-lg shadow-md border border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-400 mb-2">
+        <div className="bg-gray-900/50 backdrop-blur-sm p-4 md:p-6 rounded-xl shadow-lg border border-gray-700/50">
+          <h2 className="text-base md:text-lg font-semibold text-gray-400 mb-2">
             Sessões Agendadas
           </h2>
-          <p className="text-4xl font-bold text-white">
+          <p className="text-3xl md:text-4xl font-bold text-white">
             {stats.sessoesAgendadas}
           </p>
         </div>
-        <div className="bg-green-900/50 p-6 rounded-lg shadow-md border border-green-700">
-          <h2 className="text-lg font-semibold text-green-300 mb-2">
+        <div className="bg-green-500/10 backdrop-blur-sm p-4 md:p-6 rounded-xl shadow-lg border border-green-500/30">
+          <h2 className="text-base md:text-lg font-semibold text-green-300 mb-2">
             Total Recebido
           </h2>
-          <p className="text-4xl font-bold text-white">
+          <p className="text-3xl md:text-4xl font-bold text-white">
             R$ {stats.valorRecebido.toFixed(2).replace(".", ",")}
           </p>
         </div>
-        <div className="bg-yellow-900/50 p-6 rounded-lg shadow-md border border-yellow-700">
-          <h2 className="text-lg font-semibold text-yellow-300 mb-2">
+        <div className="bg-yellow-500/10 backdrop-blur-sm p-4 md:p-6 rounded-xl shadow-lg border border-yellow-500/30">
+          <h2 className="text-base md:text-lg font-semibold text-yellow-300 mb-2">
             Total Pendente
           </h2>
-          <p className="text-4xl font-bold text-white">
+          <p className="text-3xl md:text-4xl font-bold text-white">
             R$ {stats.valorPendente.toFixed(2).replace(".", ",")}
           </p>
         </div>
       </div>
-
+      <div className="mt-10">
+        <h2 className="text-2xl font-semibold mb-4 text-white">
+          Receita Mensal (Sessões Pagas) em {anoSelecionado}
+        </h2>
+        <div className="p-6 bg-gray-900 border border-gray-700 rounded-lg h-80 text-xs">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={dadosGrafico}
+              margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="rgba(255, 255, 255, 0.1)"
+              />
+              <XAxis dataKey="name" stroke="#A0AEC0" />
+              <YAxis stroke="#A0AEC0" tickFormatter={(value) => `R$${value}`} />
+              <Tooltip
+                cursor={{ fill: "rgba(113, 128, 150, 0.1)" }}
+                contentStyle={{
+                  backgroundColor: "#1A202C",
+                  border: "1px solid #4A5568",
+                }}
+              />
+              <Bar dataKey="Receita" fill="#4299E1" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
       <div className="mt-10">
         <h2 className="text-2xl font-semibold mb-4 text-white">
           Lançamentos Pendentes no Mês
@@ -236,7 +300,7 @@ export default function Dashboard() {
                   </tr>
                 ))
               ) : (
-                <tr className="border-t border-gray-700">
+                <tr>
                   <td colSpan={4} className="text-center py-6 text-gray-500">
                     Nenhuma pendência este mês!
                   </td>
@@ -245,15 +309,6 @@ export default function Dashboard() {
             </tbody>
           </table>
         </div>
-      </div>
-
-      <div className="mt-10">
-        <Link
-          href="/pacientes"
-          className="inline-block px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors"
-        >
-          Gerenciar Pacientes e Sessões
-        </Link>
       </div>
     </div>
   );

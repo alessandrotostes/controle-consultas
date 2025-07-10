@@ -4,14 +4,20 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import Link from "next/link";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import {
+  ArrowLeftIcon,
+  PencilIcon,
+  PencilSquareIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
+import toast from "react-hot-toast";
 
-// Interfaces para tipagem dos nossos dados
+// Interfaces
 interface Paciente {
   id: number;
   nome: string;
   telefone: string | null;
 }
-
 interface Sessao {
   id: number;
   data: string;
@@ -34,21 +40,31 @@ export default function PaginaDetalhePaciente({
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [sessaoEmEdicao, setSessaoEmEdicao] = useState<Sessao | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
+  const [isPacienteModalOpen, setIsPacienteModalOpen] =
+    useState<boolean>(false);
+  const [pacienteFormData, setPacienteFormData] = useState<{
+    nome: string;
+    telefone: string | null;
+  }>({ nome: "", telefone: "" });
   const [novaSessaoData, setNovaSessaoData] = useState<string>("");
   const [novaSessaoTipo, setNovaSessaoTipo] = useState<string>("Presencial");
   const [novaSessaoValor, setNovaSessaoValor] = useState<string>("");
   const [novaSessaoNota, setNovaSessaoNota] = useState<string>("");
 
+  // Funções de Fechar Modais
   const handleFecharModalEdicao = useCallback(() => {
     setIsEditModalOpen(false);
     setSessaoEmEdicao(null);
   }, []);
-
   const handleFecharDeleteModal = useCallback(() => {
     setIsDeleteModalOpen(false);
     setSessaoEmEdicao(null);
   }, []);
+  const handleFecharPacienteModal = useCallback(() => {
+    setIsPacienteModalOpen(false);
+  }, []);
 
+  // Busca de Dados
   useEffect(() => {
     const idDoPaciente = parseInt(params.id);
     if (isNaN(idDoPaciente)) {
@@ -62,21 +78,19 @@ export default function PaginaDetalhePaciente({
         .select("*")
         .eq("id", idDoPaciente)
         .single();
-      setPaciente(pacienteData);
-
-      // A MUDANÇA ESTÁ AQUI: ascending: true
+      setPaciente(pacienteData as Paciente);
       const { data: sessoesData } = await supabase
         .from("sessoes")
         .select("*")
         .eq("paciente_id", idDoPaciente)
-        .order("data", { ascending: false }); // DE 'true' PARA 'false' -> a ideia é que as sessões mais recentes apareçam primeiro
-
-      setSessoes(sessoesData || []);
+        .order("data", { ascending: false });
+      setSessoes((sessoesData as Sessao[]) || []);
       setLoading(false);
     };
     fetchData();
   }, [params]);
 
+  // Handlers de Ações
   const handleAdicionarSessao = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
@@ -96,13 +110,14 @@ export default function PaginaDetalhePaciente({
         .select()
         .single();
       if (error) {
-        alert("Ocorreu um erro ao adicionar a sessão.");
+        toast.error("Ocorreu um erro ao adicionar a sessão.");
       } else if (novaSessao) {
         setSessoes((sessoes) => [novaSessao, ...sessoes]);
         setNovaSessaoData("");
         setNovaSessaoValor("");
         setNovaSessaoNota("");
         setNovaSessaoTipo("Presencial");
+        toast.success("Sessão adicionada com sucesso!");
       }
     },
     [params, novaSessaoData, novaSessaoNota, novaSessaoTipo, novaSessaoValor]
@@ -130,7 +145,7 @@ export default function PaginaDetalhePaciente({
         .select()
         .single();
       if (error) {
-        alert("Erro ao salvar alterações.");
+        toast.error("Erro ao salvar alterações.");
       } else if (sessaoAtualizada) {
         setSessoes((sessoes) =>
           sessoes.map((s) =>
@@ -138,6 +153,7 @@ export default function PaginaDetalhePaciente({
           )
         );
         handleFecharModalEdicao();
+        toast.success("Sessão atualizada!");
       }
     },
     [sessaoEmEdicao, handleFecharModalEdicao]
@@ -155,16 +171,16 @@ export default function PaginaDetalhePaciente({
       .delete()
       .eq("id", sessaoEmEdicao.id);
     if (error) {
-      alert("Erro ao apagar a sessão.");
+      toast.error("Erro ao apagar a sessão.");
     } else {
       setSessoes((sessoes) =>
         sessoes.filter((s) => s.id !== sessaoEmEdicao.id)
       );
       handleFecharDeleteModal();
+      toast.success("Sessão apagada.");
     }
   }, [sessaoEmEdicao, handleFecharDeleteModal]);
 
-  // Função para a mudança rápida de status com o dropdown
   const handleTrocarStatus = useCallback(
     async (sessaoParaAtualizar: Sessao, novoStatus: string) => {
       const { data: sessaoAtualizada, error } = await supabase
@@ -174,16 +190,48 @@ export default function PaginaDetalhePaciente({
         .select()
         .single();
       if (error) {
-        alert("Erro ao atualizar status.");
+        toast.error("Erro ao atualizar status.");
       } else if (sessaoAtualizada) {
         setSessoes((sessoes) =>
           sessoes.map((s) =>
             s.id === sessaoAtualizada.id ? sessaoAtualizada : s
           )
         );
+        toast.success(`Status alterado para ${novoStatus}!`);
       }
     },
     []
+  );
+
+  const handleAbrirPacienteModal = useCallback(() => {
+    if (paciente) {
+      setPacienteFormData({ nome: paciente.nome, telefone: paciente.telefone });
+      setIsPacienteModalOpen(true);
+    }
+  }, [paciente]);
+
+  const handleSalvarPaciente = useCallback(
+    async (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      if (!paciente) return;
+      const { data: pacienteAtualizado, error } = await supabase
+        .from("pacientes")
+        .update({
+          nome: pacienteFormData.nome,
+          telefone: pacienteFormData.telefone,
+        })
+        .eq("id", paciente.id)
+        .select()
+        .single();
+      if (error) {
+        toast.error("Erro ao atualizar dados do paciente.");
+      } else if (pacienteAtualizado) {
+        setPaciente(pacienteAtualizado as Paciente);
+        toast.success("Paciente atualizado com sucesso!");
+        handleFecharPacienteModal();
+      }
+    },
+    [paciente, pacienteFormData, handleFecharPacienteModal]
   );
 
   if (loading)
@@ -192,7 +240,7 @@ export default function PaginaDetalhePaciente({
         <h1 className="text-3xl font-bold text-white">Carregando...</h1>
       </div>
     );
-  if (!paciente && !loading)
+  if (!paciente)
     return (
       <div>
         <h1 className="text-3xl font-bold text-white">
@@ -204,14 +252,42 @@ export default function PaginaDetalhePaciente({
   return (
     <div>
       <div className="mb-8">
-        <Link href="/pacientes" className="text-blue-400 hover:underline">
-          &larr; Voltar para todos os pacientes
+        <Link
+          href="/pacientes"
+          className="flex items-center gap-2 text-blue-400 hover:underline mb-4 w-fit"
+        >
+          <ArrowLeftIcon className="h-5 w-5" />
+          Voltar
         </Link>
-        <h1 className="text-4xl font-bold mt-2 text-white">{paciente?.nome}</h1>
-        <p className="text-lg text-gray-400">{paciente?.telefone}</p>
+        <div className="flex justify-between items-start gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl md:text-4xl font-bold text-white">
+                {paciente?.nome}
+              </h1>
+              <button
+                onClick={handleAbrirPacienteModal}
+                className="text-gray-400 hover:text-white mt-1"
+                title="Editar Paciente"
+              >
+                <PencilIcon className="h-5 md:h-6 w-5 md:w-6" />
+              </button>
+            </div>
+            <p className="text-base md:text-lg text-gray-400 mt-1">
+              {paciente?.telefone}
+            </p>
+          </div>
+          <div className="bg-gray-900 border border-gray-700 p-3 md:p-4 rounded-lg text-center flex-shrink-0">
+            <h3 className="text-xs md:text-sm font-semibold text-gray-400">
+              Total Sessões
+            </h3>
+            <p className="text-2xl md:text-3xl font-bold text-white">
+              {sessoes.filter((s) => s.status !== "Cancelado").length}
+            </p>
+          </div>
+        </div>
       </div>
-
-      <div className="mb-8 p-6 bg-gray-900 border border-gray-700 rounded-lg">
+      <div className="my-8 p-6 bg-gray-900 border border-gray-700 rounded-lg">
         <h2 className="text-2xl font-semibold mb-4 text-white">
           Adicionar Nova Sessão
         </h2>
@@ -296,7 +372,6 @@ export default function PaginaDetalhePaciente({
           </div>
         </form>
       </div>
-
       <h2 className="text-2xl font-semibold mb-4 text-white">
         Histórico de Sessões
       </h2>
@@ -364,19 +439,21 @@ export default function PaginaDetalhePaciente({
                         className="min-w-[140px] bg-gray-700 rounded-md p-1 shadow-lg z-20"
                         sideOffset={5}
                       >
-                        {["Pendente", "Paga", "Cancelado"].map(
-                          (statusOption) => (
-                            <DropdownMenu.Item
-                              key={statusOption}
-                              className="text-gray-200 text-sm rounded flex items-center p-2 select-none outline-none data-[highlighted]:bg-blue-600 data-[highlighted]:text-white cursor-pointer"
-                              onSelect={() =>
-                                handleTrocarStatus(sessao, statusOption)
-                              }
-                            >
-                              {statusOption}
-                            </DropdownMenu.Item>
-                          )
-                        )}
+                        <div className="flex flex-col gap-1">
+                          {["Pendente", "Paga", "Cancelado"].map(
+                            (statusOption) => (
+                              <DropdownMenu.Item
+                                key={statusOption}
+                                className="text-gray-200 text-sm rounded flex items-center p-2 select-none outline-none data-[highlighted]:bg-blue-600 data-[highlighted]:text-white cursor-pointer"
+                                onSelect={() =>
+                                  handleTrocarStatus(sessao, statusOption)
+                                }
+                              >
+                                {statusOption}
+                              </DropdownMenu.Item>
+                            )
+                          )}
+                        </div>
                       </DropdownMenu.Content>
                     </DropdownMenu.Portal>
                   </DropdownMenu.Root>
@@ -388,15 +465,17 @@ export default function PaginaDetalhePaciente({
                   <div className="flex items-center gap-4">
                     <button
                       onClick={() => handleAbrirModalEdicao(sessao)}
-                      className="text-blue-400 hover:text-blue-300 font-semibold"
+                      className="text-blue-400 hover:text-blue-300"
+                      title="Editar Sessão"
                     >
-                      Editar
+                      <PencilSquareIcon className="h-5 w-5" />
                     </button>
                     <button
                       onClick={() => handleAbrirDeleteModal(sessao)}
-                      className="text-red-500 hover:text-red-400 font-semibold"
+                      className="text-red-500 hover:text-red-400"
+                      title="Apagar Sessão"
                     >
-                      Apagar
+                      <TrashIcon className="h-5 w-5" />
                     </button>
                   </div>
                 </td>
@@ -405,7 +484,6 @@ export default function PaginaDetalhePaciente({
           </tbody>
         </table>
       </div>
-
       {isEditModalOpen && sessaoEmEdicao && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
           <div className="bg-gray-900 p-8 rounded-lg shadow-2xl w-full max-w-lg border border-gray-700">
@@ -539,7 +617,6 @@ export default function PaginaDetalhePaciente({
           </div>
         </div>
       )}
-
       {isDeleteModalOpen && sessaoEmEdicao && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
           <div className="bg-gray-900 p-8 rounded-lg shadow-2xl w-full max-w-md border border-gray-700">
@@ -572,6 +649,72 @@ export default function PaginaDetalhePaciente({
                 Sim, Apagar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {isPacienteModalOpen && paciente && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
+          <div className="bg-gray-900 p-8 rounded-lg shadow-2xl w-full max-w-lg border border-gray-700">
+            <h2 className="text-2xl font-bold mb-6 text-white">
+              Editar Paciente
+            </h2>
+            <form onSubmit={handleSalvarPaciente} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="edit-paciente-nome"
+                  className="block mb-1 text-sm font-medium text-gray-300"
+                >
+                  Nome
+                </label>
+                <input
+                  type="text"
+                  id="edit-paciente-nome"
+                  value={pacienteFormData.nome}
+                  onChange={(e) =>
+                    setPacienteFormData({
+                      ...pacienteFormData,
+                      nome: e.target.value,
+                    })
+                  }
+                  className="w-full p-2 border rounded bg-gray-800 border-gray-600 text-white"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="edit-paciente-telefone"
+                  className="block mb-1 text-sm font-medium text-gray-300"
+                >
+                  Telefone
+                </label>
+                <input
+                  type="text"
+                  id="edit-paciente-telefone"
+                  value={pacienteFormData.telefone || ""}
+                  onChange={(e) =>
+                    setPacienteFormData({
+                      ...pacienteFormData,
+                      telefone: e.target.value,
+                    })
+                  }
+                  className="w-full p-2 border rounded bg-gray-800 border-gray-600 text-white"
+                />
+              </div>
+              <div className="flex justify-end gap-4 pt-4">
+                <button
+                  type="button"
+                  onClick={handleFecharPacienteModal}
+                  className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700"
+                >
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
