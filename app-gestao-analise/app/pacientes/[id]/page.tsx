@@ -63,11 +63,14 @@ export default function PaginaDetalhePaciente({
         .eq("id", idDoPaciente)
         .single();
       setPaciente(pacienteData);
+
+      // A MUDANÇA ESTÁ AQUI: ascending: true
       const { data: sessoesData } = await supabase
         .from("sessoes")
         .select("*")
         .eq("paciente_id", idDoPaciente)
-        .order("data", { ascending: false });
+        .order("data", { ascending: false }); // DE 'true' PARA 'false' -> a ideia é que as sessões mais recentes apareçam primeiro
+
       setSessoes(sessoesData || []);
       setLoading(false);
     };

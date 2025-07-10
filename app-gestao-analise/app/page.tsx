@@ -2,22 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabaseClient";
-import Link from "next/link";
 
-// Definimos as interfaces aqui para clareza
-interface Paciente {
-  id: number;
-  created_at: string;
-  nome: string;
-  telefone: string | null;
-}
-
+// Interface para a sessão com os dados do paciente
 interface SessaoComPaciente {
-  id: number;
   data: string;
   valor: number;
   status: string;
-  pacientes: Paciente | null; // Supabase retorna a tabela no plural como um array
+  paciente: {
+    nome: string;
+  } | null;
 }
 
 export default function Dashboard() {
@@ -32,22 +25,34 @@ export default function Dashboard() {
   );
   const [loading, setLoading] = useState(true);
   const [nomeMes, setNomeMes] = useState("");
+  const [anoSelecionado, setAnoSelecionado] = useState(
+    new Date().getFullYear()
+  );
+  const [mesSelecionado, setMesSelecionado] = useState(new Date().getMonth());
+
+  const anosDisponiveis = [2025, 2024, 2023];
+  const nomesDosMeses = [
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
+  ];
 
   useEffect(() => {
     const fetchMonthlyData = async () => {
       setLoading(true);
-      const hoje = new Date();
-      const primeiroDiaDoMes = new Date(
-        hoje.getFullYear(),
-        hoje.getMonth(),
-        1
-      ).toISOString();
-      const ultimoDiaDoMes = new Date(
-        hoje.getFullYear(),
-        hoje.getMonth() + 1,
-        0
-      ).toISOString();
-      const nomeDoMesAtual = hoje.toLocaleString("pt-BR", {
+      const primeiroDiaDoMes = new Date(anoSelecionado, mesSelecionado, 1);
+      const ultimoDiaDoMes = new Date(anoSelecionado, mesSelecionado + 1, 0);
+      const dataDeReferencia = new Date(anoSelecionado, mesSelecionado, 1);
+      const nomeDoMesAtual = dataDeReferencia.toLocaleString("pt-BR", {
         month: "long",
         year: "numeric",
       });
@@ -55,16 +60,12 @@ export default function Dashboard() {
         nomeDoMesAtual.charAt(0).toUpperCase() + nomeDoMesAtual.slice(1)
       );
 
-      // NOVA CONSULTA: Pedindo todas as colunas de ambas as tabelas
       const { data, error } = await supabase
         .from("sessoes")
-        .select("*, pacientes(*)")
-        .gte("data", primeiroDiaDoMes)
-        .lte("data", ultimoDiaDoMes)
+        .select("data, valor, status, paciente:pacientes(nome)")
+        .gte("data", primeiroDiaDoMes.toISOString())
+        .lte("data", ultimoDiaDoMes.toISOString())
         .order("data", { ascending: true });
-
-      // O espião final!
-      console.log("DADOS FINAIS RECEBIDOS:", data);
 
       if (error) {
         console.error("Erro ao buscar dados do mês:", error);
@@ -96,31 +97,66 @@ export default function Dashboard() {
           valorRecebido: valorRecebidoCalc,
           valorPendente: valorPendenteCalc,
         });
-
         const pendentes = data.filter(
           (s) => s.status === "Pendente" || s.status === "Cancelado"
         );
-        setSessoesPendentes(pendentes as SessaoComPaciente[]);
+        // Ajusta o formato do paciente para corresponder à interface SessaoComPaciente
+        const pendentesFormatados: SessaoComPaciente[] = pendentes.map((s) => ({
+          data: s.data,
+          valor: s.valor,
+          status: s.status,
+          paciente:
+            Array.isArray(s.paciente) && s.paciente.length > 0
+              ? { nome: s.paciente[0].nome }
+              : null,
+        }));
+        setSessoesPendentes(pendentesFormatados);
       }
       setLoading(false);
     };
 
     fetchMonthlyData();
-  }, []);
+  }, [anoSelecionado, mesSelecionado]);
 
   if (loading)
     return (
       <div>
-        <h1 className="text-3xl font-bold text-white">
-          Carregando dashboard...
-        </h1>
+        <h1 className="text-3xl font-bold text-white">Carregando...</h1>
       </div>
     );
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-2 text-white">Dashboard</h1>
-      <p className="text-lg text-gray-400 mb-8">Resumo de {nomeMes}</p>
+      <div className="flex flex-wrap items-center gap-4 mb-8">
+        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+        <div className="flex items-center gap-2">
+          <select
+            value={mesSelecionado}
+            onChange={(e) => setMesSelecionado(parseInt(e.target.value))}
+            className="p-2 border rounded bg-gray-800 border-gray-600 text-white"
+          >
+            {nomesDosMeses.map((mes, index) => (
+              <option key={index} value={index}>
+                {mes}
+              </option>
+            ))}
+          </select>
+          <select
+            value={anoSelecionado}
+            onChange={(e) => setAnoSelecionado(parseInt(e.target.value))}
+            className="p-2 border rounded bg-gray-800 border-gray-600 text-white"
+          >
+            {anosDisponiveis.map((ano) => (
+              <option key={ano} value={ano}>
+                {ano}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <p className="text-lg text-gray-400 mb-8">Exibindo resumo de {nomeMes}</p>
+
+      {/* CARDS DE RESUMO INCLUÍDOS CORRETAMENTE */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-gray-900 p-6 rounded-lg shadow-md border border-gray-700">
           <h2 className="text-lg font-semibold text-gray-400 mb-2">
@@ -155,6 +191,7 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
+
       <div className="mt-10">
         <h2 className="text-2xl font-semibold mb-4 text-white">
           Lançamentos Pendentes no Mês
@@ -182,7 +219,7 @@ export default function Dashboard() {
                 sessoesPendentes.map((sessao, index) => (
                   <tr key={index} className="border-t border-gray-700">
                     <td className="py-3 px-4 font-medium">
-                      {sessao.pacientes?.nome || "Paciente não encontrado"}
+                      {sessao.paciente?.nome || "Paciente não encontrado"}
                     </td>
                     <td className="py-3 px-4">
                       {new Date(sessao.data + "T00:00:00Z").toLocaleDateString(
@@ -215,14 +252,6 @@ export default function Dashboard() {
             </tbody>
           </table>
         </div>
-      </div>
-      <div className="mt-10">
-        <Link
-          href="/pacientes"
-          className="inline-block px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors"
-        >
-          Gerenciar Pacientes e Sessões
-        </Link>
       </div>
     </div>
   );
