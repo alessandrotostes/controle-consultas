@@ -11,7 +11,9 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import toast from "react-hot-toast"; // Adicionado para consistência
 
+// Interfaces e constantes fora do componente para evitar recriação
 interface Paciente {
   nome: string;
 }
@@ -21,6 +23,35 @@ interface SessaoComPaciente {
   status: string;
   paciente: Paciente | null;
 }
+const anosDisponiveis = [2025, 2024, 2023];
+const nomesDosMeses = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
+const nomesAbreviadosDosMeses = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+];
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
@@ -41,39 +72,21 @@ export default function Dashboard() {
   );
   const [mesSelecionado, setMesSelecionado] = useState(new Date().getMonth());
 
-  const anosDisponiveis = [2025, 2024, 2023];
-  const nomesDosMeses = [
-    "Janeiro",
-    "Fevereiro",
-    "Março",
-    "Abril",
-    "Maio",
-    "Junho",
-    "Julho",
-    "Agosto",
-    "Setembro",
-    "Outubro",
-    "Novembro",
-    "Dezembro",
-  ];
-  const nomesAbreviadosDosMeses = [
-    "Jan",
-    "Fev",
-    "Mar",
-    "Abr",
-    "Mai",
-    "Jun",
-    "Jul",
-    "Ago",
-    "Set",
-    "Out",
-    "Nov",
-    "Dez",
-  ];
-
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+
+      // CORREÇÃO: Pegamos o usuário logado PRIMEIRO
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      // Se não houver usuário, não fazemos nada
+      if (!user) {
+        setLoading(false);
+        toast.error("Sessão não encontrada. Faça o login novamente.");
+        return;
+      }
 
       const primeiroDiaDoMes = new Date(anoSelecionado, mesSelecionado, 1);
       const ultimoDiaDoMes = new Date(anoSelecionado, mesSelecionado + 1, 0);
@@ -86,17 +99,21 @@ export default function Dashboard() {
         nomeDoMesAtual.charAt(0).toUpperCase() + nomeDoMesAtual.slice(1)
       );
 
+      // Busca 1: Dados do mês com o filtro de user_id
       const { data: dataMes, error: errorMes } = await supabase
         .from("sessoes")
         .select("data, valor, status, paciente:pacientes(nome)")
+        .eq("user_id", user.id)
         .gte("data", primeiroDiaDoMes.toISOString())
         .lte("data", ultimoDiaDoMes.toISOString());
 
+      // Busca 2: Dados do ano com o filtro de user_id
       const primeiroDiaDoAno = new Date(anoSelecionado, 0, 1);
       const ultimoDiaDoAno = new Date(anoSelecionado, 11, 31);
       const { data: dataAno, error: errorAno } = await supabase
         .from("sessoes")
         .select("data, valor")
+        .eq("user_id", user.id)
         .eq("status", "Paga")
         .gte("data", primeiroDiaDoAno.toISOString())
         .lte("data", ultimoDiaDoAno.toISOString());
@@ -104,6 +121,7 @@ export default function Dashboard() {
       if (errorMes || errorAno) {
         console.error("Erro ao buscar dados:", errorMes || errorAno);
       } else {
+        // Lógica de cálculo (sem mudanças)
         let valorRecebidoCalc = 0,
           valorPendenteCalc = 0,
           sessoesRealizadasCount = 0,
@@ -147,6 +165,7 @@ export default function Dashboard() {
       }
       setLoading(false);
     };
+
     fetchData();
   }, [anoSelecionado, mesSelecionado]);
 

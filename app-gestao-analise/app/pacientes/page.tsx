@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
+import toast from "react-hot-toast";
 
 interface Paciente {
   id: number;
@@ -19,14 +20,26 @@ export default function PaginaPacientes() {
   useEffect(() => {
     const fetchPacientes = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("pacientes")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) {
-        console.error("Erro ao buscar pacientes:", error);
-      } else {
-        setPacientes(data as Paciente[]);
+
+      // 1. Pega o usuário atualmente logado
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        // 2. Busca apenas os pacientes onde a coluna 'user_id' é igual ao ID do usuário logado
+        const { data, error } = await supabase
+          .from("pacientes")
+          .select("*")
+          .eq("user_id", user.id) // <-- O filtro de segurança crucial
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Erro ao buscar pacientes:", error);
+          toast.error("Não foi possível carregar os pacientes.");
+        } else {
+          setPacientes(data || []);
+        }
       }
       setLoading(false);
     };
@@ -36,16 +49,38 @@ export default function PaginaPacientes() {
   const handleAdicionarPaciente = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      const { data, error } = await supabase
+
+      // 1. Pega o usuário logado
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast.error("Sua sessão expirou. Por favor, faça o login novamente.");
+        return;
+      }
+
+      // 2. Insere os dados do paciente, INCLUINDO o user.id
+      const { data: novoPaciente, error } = await supabase
         .from("pacientes")
-        .insert([{ nome: novoPacienteNome, telefone: novoPacienteTelefone }])
-        .select();
+        .insert([
+          {
+            nome: novoPacienteNome,
+            telefone: novoPacienteTelefone,
+            user_id: user.id, // A linha crucial que faltava!
+          },
+        ])
+        .select()
+        .single();
+
       if (error) {
-        alert("Ocorreu um erro ao adicionar o paciente.");
-      } else if (data) {
-        setPacientes((pacientes) => [data[0] as Paciente, ...pacientes]);
+        console.error("Erro ao adicionar paciente:", error);
+        toast.error("Ocorreu um erro ao adicionar o paciente.");
+      } else if (novoPaciente) {
+        setPacientes((pacientes) => [novoPaciente, ...pacientes]);
         setNovoPacienteNome("");
         setNovoPacienteTelefone("");
+        toast.success("Paciente adicionado com sucesso!");
       }
     },
     [novoPacienteNome, novoPacienteTelefone]

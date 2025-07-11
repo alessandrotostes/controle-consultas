@@ -17,6 +17,7 @@ interface Paciente {
   id: number;
   nome: string;
   telefone: string | null;
+  sessoes_iniciais: number;
 }
 interface Sessao {
   id: number;
@@ -45,7 +46,8 @@ export default function PaginaDetalhePaciente({
   const [pacienteFormData, setPacienteFormData] = useState<{
     nome: string;
     telefone: string | null;
-  }>({ nome: "", telefone: "" });
+    sessoes_iniciais: number;
+  }>({ nome: "", telefone: "", sessoes_iniciais: 0 });
   const [novaSessaoData, setNovaSessaoData] = useState<string>("");
   const [novaSessaoTipo, setNovaSessaoTipo] = useState<string>("Presencial");
   const [novaSessaoValor, setNovaSessaoValor] = useState<string>("");
@@ -73,17 +75,26 @@ export default function PaginaDetalhePaciente({
     }
     const fetchData = async () => {
       setLoading(true);
-      const { data: pacienteData } = await supabase
+      const { data: pacienteData, error: pacienteError } = await supabase
         .from("pacientes")
         .select("*")
         .eq("id", idDoPaciente)
         .single();
+      if (pacienteError) {
+        console.error("Erro ao buscar paciente:", pacienteError);
+        setLoading(false);
+        return;
+      }
       setPaciente(pacienteData as Paciente);
-      const { data: sessoesData } = await supabase
+
+      const { data: sessoesData, error: sessoesError } = await supabase
         .from("sessoes")
         .select("*")
         .eq("paciente_id", idDoPaciente)
         .order("data", { ascending: false });
+      if (sessoesError) {
+        console.error("Erro ao buscar sessões:", sessoesError);
+      }
       setSessoes((sessoesData as Sessao[]) || []);
       setLoading(false);
     };
@@ -94,6 +105,13 @@ export default function PaginaDetalhePaciente({
   const handleAdicionarSessao = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Sessão expirada. Faça o login novamente.");
+        return;
+      }
       const idDoPaciente = parseInt(params.id);
       const { data: novaSessao, error } = await supabase
         .from("sessoes")
@@ -105,12 +123,14 @@ export default function PaginaDetalhePaciente({
             status: "Pendente",
             paciente_id: idDoPaciente,
             nota: novaSessaoNota,
+            user_id: user.id,
           },
         ])
         .select()
         .single();
       if (error) {
         toast.error("Ocorreu um erro ao adicionar a sessão.");
+        console.error(error);
       } else if (novaSessao) {
         setSessoes((sessoes) => [novaSessao, ...sessoes]);
         setNovaSessaoData("");
@@ -205,7 +225,11 @@ export default function PaginaDetalhePaciente({
 
   const handleAbrirPacienteModal = useCallback(() => {
     if (paciente) {
-      setPacienteFormData({ nome: paciente.nome, telefone: paciente.telefone });
+      setPacienteFormData({
+        nome: paciente.nome,
+        telefone: paciente.telefone,
+        sessoes_iniciais: paciente.sessoes_iniciais || 0,
+      });
       setIsPacienteModalOpen(true);
     }
   }, [paciente]);
@@ -219,6 +243,7 @@ export default function PaginaDetalhePaciente({
         .update({
           nome: pacienteFormData.nome,
           telefone: pacienteFormData.telefone,
+          sessoes_iniciais: pacienteFormData.sessoes_iniciais,
         })
         .eq("id", paciente.id)
         .select()
@@ -282,11 +307,13 @@ export default function PaginaDetalhePaciente({
               Total Sessões
             </h3>
             <p className="text-2xl md:text-3xl font-bold text-white">
-              {sessoes.filter((s) => s.status !== "Cancelado").length}
+              {(paciente.sessoes_iniciais || 0) +
+                sessoes.filter((s) => s.status !== "Cancelado").length}
             </p>
           </div>
         </div>
       </div>
+
       <div className="my-8 p-6 bg-gray-900 border border-gray-700 rounded-lg">
         <h2 className="text-2xl font-semibold mb-4 text-white">
           Adicionar Nova Sessão
@@ -372,6 +399,7 @@ export default function PaginaDetalhePaciente({
           </div>
         </form>
       </div>
+
       <h2 className="text-2xl font-semibold mb-4 text-white">
         Histórico de Sessões
       </h2>
@@ -484,6 +512,7 @@ export default function PaginaDetalhePaciente({
           </tbody>
         </table>
       </div>
+
       {isEditModalOpen && sessaoEmEdicao && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
           <div className="bg-gray-900 p-8 rounded-lg shadow-2xl w-full max-w-lg border border-gray-700">
@@ -617,6 +646,7 @@ export default function PaginaDetalhePaciente({
           </div>
         </div>
       )}
+
       {isDeleteModalOpen && sessaoEmEdicao && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
           <div className="bg-gray-900 p-8 rounded-lg shadow-2xl w-full max-w-md border border-gray-700">
@@ -652,6 +682,7 @@ export default function PaginaDetalhePaciente({
           </div>
         </div>
       )}
+
       {isPacienteModalOpen && paciente && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
           <div className="bg-gray-900 p-8 rounded-lg shadow-2xl w-full max-w-lg border border-gray-700">
@@ -694,6 +725,26 @@ export default function PaginaDetalhePaciente({
                     setPacienteFormData({
                       ...pacienteFormData,
                       telefone: e.target.value,
+                    })
+                  }
+                  className="w-full p-2 border rounded bg-gray-800 border-gray-600 text-white"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="edit-paciente-sessoes"
+                  className="block mb-1 text-sm font-medium text-gray-300"
+                >
+                  Sessões Anteriores
+                </label>
+                <input
+                  type="number"
+                  id="edit-paciente-sessoes"
+                  value={pacienteFormData.sessoes_iniciais}
+                  onChange={(e) =>
+                    setPacienteFormData({
+                      ...pacienteFormData,
+                      sessoes_iniciais: parseInt(e.target.value) || 0,
                     })
                   }
                   className="w-full p-2 border rounded bg-gray-800 border-gray-600 text-white"
