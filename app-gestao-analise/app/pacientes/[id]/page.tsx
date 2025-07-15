@@ -1,18 +1,31 @@
+// app/pacientes/[id]/page.tsx
+
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import { PacienteDetalheCliente } from "@/components/PacienteDetalheCliente";
 import type { Paciente, Sessao } from "@/lib/types";
+import type { Metadata } from "next"; // Importar o tipo Metadata
 
-// A declaração 'type PageProps' foi removida.
-// A tipagem será feita diretamente na função abaixo.
+// AÇÃO CORRIGIDA 1: Exportação de METADATA e VIEWPORT separadamente
+// Isso corrige o aviso "Unsupported metadata viewport"
+export const metadata: Metadata = {
+  title: "Detalhes do Paciente",
+  description: "Visualização detalhada do paciente e suas sessões.",
+};
 
-// Corrigido aqui: A tipagem dos parâmetros é definida inline.
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
+// AÇÃO CORRIGIDA 2: A função da página continua sendo ASYNC e com tipagem INLINE.
+// Isso corrige os erros sobre 'params' e 'cookies()' não serem "awaited".
 export default async function PaginaPaciente({
   params,
 }: {
   params: { id: string };
 }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const id = parseInt(params.id);
 
   if (isNaN(id)) {
@@ -31,6 +44,7 @@ export default async function PaginaPaciente({
     );
   }
 
+  // O uso de 'await' aqui é possível porque a função é 'async'
   const { data: paciente, error: pacienteError } = await supabase
     .from("pacientes")
     .select("*")
