@@ -29,7 +29,6 @@ interface Sessao {
   nota: string | null;
 }
 
-// Assinatura da função corrigida para o padrão de deploy
 export default function PaginaDetalhePaciente({
   params,
 }: {
