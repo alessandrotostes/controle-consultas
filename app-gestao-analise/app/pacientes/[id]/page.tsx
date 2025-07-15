@@ -1,4 +1,4 @@
-"use client";
+"use client"; // Esta diretiva agora se aplica apenas ao componente de cliente
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/utils/supabaseClient";
@@ -29,14 +29,11 @@ interface Sessao {
   nota: string | null;
 }
 
-// CORREÇÃO: Definindo um tipo para as props da página
-type PageProps = {
-  params: { id: string };
-};
-
-export default function PaginaDetalhePaciente({ params }: PageProps) {
-  // O resto do código continua exatamente o mesmo...
-
+// ====================================================================
+// 1. CRIAMOS UM COMPONENTE DE CLIENTE PARA TODA A LÓGICA INTERATIVA
+// ====================================================================
+function PacienteDetalheCliente({ idDoPaciente }: { idDoPaciente: number }) {
+  // Todo o nosso código antigo (states, useEffects, handlers) agora vive aqui dentro.
   const [paciente, setPaciente] = useState<Paciente | null>(null);
   const [sessoes, setSessoes] = useState<Sessao[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -68,11 +65,6 @@ export default function PaginaDetalhePaciente({ params }: PageProps) {
   }, []);
 
   useEffect(() => {
-    const idDoPaciente = parseInt(params.id);
-    if (isNaN(idDoPaciente)) {
-      setLoading(false);
-      return;
-    }
     const fetchData = async () => {
       setLoading(true);
       const { data: pacienteData } = await supabase
@@ -90,7 +82,7 @@ export default function PaginaDetalhePaciente({ params }: PageProps) {
       setLoading(false);
     };
     fetchData();
-  }, [params]);
+  }, [idDoPaciente]);
 
   const handleAdicionarSessao = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
@@ -102,7 +94,6 @@ export default function PaginaDetalhePaciente({ params }: PageProps) {
         toast.error("Sessão expirada. Faça o login novamente.");
         return;
       }
-      const idDoPaciente = parseInt(params.id);
       const { data: novaSessao, error } = await supabase
         .from("sessoes")
         .insert([
@@ -129,7 +120,13 @@ export default function PaginaDetalhePaciente({ params }: PageProps) {
         toast.success("Sessão adicionada com sucesso!");
       }
     },
-    [params, novaSessaoData, novaSessaoNota, novaSessaoTipo, novaSessaoValor]
+    [
+      idDoPaciente,
+      novaSessaoData,
+      novaSessaoNota,
+      novaSessaoTipo,
+      novaSessaoValor,
+    ]
   );
 
   const handleAbrirModalEdicao = useCallback((sessao: Sessao) => {
@@ -753,4 +750,34 @@ export default function PaginaDetalhePaciente({ params }: PageProps) {
       )}
     </div>
   );
+}
+
+// ====================================================================
+// 2. A PÁGINA EM SI AGORA É UM COMPONENTE DE SERVIDOR
+//    Ela só valida o ID e passa para o componente de cliente.
+// ====================================================================
+type PageProps = {
+  params: { id: string };
+};
+
+export default function PaginaPaciente({ params }: PageProps) {
+  const id = parseInt(params.id);
+
+  if (isNaN(id)) {
+    return (
+      <div className="p-8">
+        <h1 className="text-3xl font-bold text-white">
+          ID de paciente inválido.
+        </h1>
+        <Link
+          href="/pacientes"
+          className="text-blue-400 hover:underline mt-4 inline-block"
+        >
+          &larr; Voltar para a lista de pacientes
+        </Link>
+      </div>
+    );
+  }
+
+  return <PacienteDetalheCliente idDoPaciente={id} />;
 }
