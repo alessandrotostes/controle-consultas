@@ -29,13 +29,14 @@ interface Sessao {
   nota: string | null;
 }
 
-// A CORREÇÃO FINAL: Definimos o tipo diretamente na assinatura da função
-export default function PaginaDetalhePaciente({
-  params,
-}: {
+// CORREÇÃO: Definindo um tipo para as props da página
+type PageProps = {
   params: { id: string };
-}) {
-  // States
+};
+
+export default function PaginaDetalhePaciente({ params }: PageProps) {
+  // O resto do código continua exatamente o mesmo...
+
   const [paciente, setPaciente] = useState<Paciente | null>(null);
   const [sessoes, setSessoes] = useState<Sessao[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
