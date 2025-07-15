@@ -1,3 +1,4 @@
+// components/PacienteDetalheCliente.tsx
 "use client";
 
 import { useState, useCallback } from "react";
@@ -78,11 +79,10 @@ export function PacienteDetalheCliente({
       if (error) {
         toast.error("Erro ao adicionar sessão.");
       } else if (novaSessao) {
-        setSessoes((sessoes) =>
-          [...sessoes, novaSessao].sort(
-            (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
-          )
+        const listaOrdenada = [novaSessao, ...sessoes].sort(
+          (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
         );
+        setSessoes(listaOrdenada);
         setNovaSessaoData("");
         setNovaSessaoValor("");
         setNovaSessaoNota("");
@@ -97,6 +97,7 @@ export function PacienteDetalheCliente({
       novaSessaoTipo,
       novaSessaoValor,
       supabase,
+      sessoes,
     ]
   );
 
@@ -182,7 +183,6 @@ export function PacienteDetalheCliente({
     setPacienteFormData({ ...paciente });
     setIsPacienteModalOpen(true);
   }, [paciente]);
-
   const handleSalvarPaciente = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
@@ -358,96 +358,87 @@ export function PacienteDetalheCliente({
             </tr>
           </thead>
           <tbody className="text-gray-300">
-            {sessoes.length > 0 ? (
-              sessoes.map((sessao) => (
-                <tr
-                  key={sessao.id}
-                  className="border-t border-gray-700 hover:bg-gray-800/50"
-                >
-                  <td className="py-3 px-4">
-                    {new Date(sessao.data + "T00:00:00").toLocaleDateString(
-                      "pt-BR"
-                    )}
-                  </td>
-                  <td className="py-3 px-4">{sessao.tipo}</td>
-                  <td className="py-3 px-4">
-                    R$ {sessao.valor.toFixed(2).replace(".", ",")}
-                  </td>
-                  <td className="py-3 px-4">
-                    <DropdownMenu.Root>
-                      <DropdownMenu.Trigger asChild>
-                        <button
-                          className="flex items-center outline-none rounded-full"
-                          title="Clique para alterar o status"
-                        >
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-semibold cursor-pointer ${
-                              sessao.status === "Paga"
-                                ? "bg-green-900 text-green-200"
-                                : sessao.status === "Cancelado"
-                                ? "bg-red-900 text-red-200"
-                                : "bg-yellow-900 text-yellow-200"
-                            }`}
-                          >
-                            {sessao.status}
-                          </span>
-                        </button>
-                      </DropdownMenu.Trigger>
-                      <DropdownMenu.Portal>
-                        <DropdownMenu.Content
-                          className="min-w-[140px] bg-gray-700 rounded-md p-1 shadow-lg z-20"
-                          sideOffset={5}
-                        >
-                          <div className="flex flex-col gap-1">
-                            {["Pendente", "Paga", "Cancelado"].map(
-                              (statusOption) => (
-                                <DropdownMenu.Item
-                                  key={statusOption}
-                                  className="text-gray-200 text-sm rounded flex items-center p-2 select-none outline-none data-[highlighted]:bg-blue-600 data-[highlighted]:text-white cursor-pointer"
-                                  onSelect={() =>
-                                    handleTrocarStatus(sessao, statusOption)
-                                  }
-                                >
-                                  {statusOption}
-                                </DropdownMenu.Item>
-                              )
-                            )}
-                          </div>
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Portal>
-                    </DropdownMenu.Root>
-                  </td>
-                  <td className="py-3 px-4 text-sm text-gray-400">
-                    {sessao.nota}
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-4">
+            {sessoes.map((sessao) => (
+              <tr
+                key={sessao.id}
+                className="border-t border-gray-700 hover:bg-gray-800/50"
+              >
+                <td className="py-3 px-4">
+                  {new Date(sessao.data + "T00:00:00").toLocaleDateString(
+                    "pt-BR"
+                  )}
+                </td>
+                <td className="py-3 px-4">{sessao.tipo}</td>
+                <td className="py-3 px-4">
+                  R$ {sessao.valor.toFixed(2).replace(".", ",")}
+                </td>
+                <td className="py-3 px-4">
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild>
                       <button
-                        onClick={() => handleAbrirModalEdicao(sessao)}
-                        className="text-blue-400 hover:text-blue-300"
-                        title="Editar Sessão"
+                        className="flex items-center outline-none rounded-full"
+                        title="Clique para alterar o status"
                       >
-                        <PencilSquareIcon className="h-5 w-5" />
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-semibold cursor-pointer ${
+                            sessao.status === "Paga"
+                              ? "bg-green-900 text-green-200"
+                              : sessao.status === "Cancelado"
+                              ? "bg-red-900 text-red-200"
+                              : "bg-yellow-900 text-yellow-200"
+                          }`}
+                        >
+                          {sessao.status}
+                        </span>
                       </button>
-                      <button
-                        onClick={() => handleAbrirDeleteModal(sessao)}
-                        className="text-red-500 hover:text-red-400"
-                        title="Apagar Sessão"
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Portal>
+                      <DropdownMenu.Content
+                        className="min-w-[140px] bg-gray-700 rounded-md p-1 shadow-lg z-20"
+                        sideOffset={5}
                       >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              // AQUI ESTÁ A ADIÇÃO
-              <tr className="border-t border-gray-700">
-                <td colSpan={6} className="text-center py-8 text-gray-500">
-                  Nenhuma sessão registrada para este paciente ainda.
+                        <div className="flex flex-col gap-1">
+                          {["Pendente", "Paga", "Cancelado"].map(
+                            (statusOption) => (
+                              <DropdownMenu.Item
+                                key={statusOption}
+                                className="text-gray-200 text-sm rounded flex items-center p-2 select-none outline-none data-[highlighted]:bg-blue-600 data-[highlighted]:text-white cursor-pointer"
+                                onSelect={() =>
+                                  handleTrocarStatus(sessao, statusOption)
+                                }
+                              >
+                                {statusOption}
+                              </DropdownMenu.Item>
+                            )
+                          )}
+                        </div>
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                  </DropdownMenu.Root>
+                </td>
+                <td className="py-3 px-4 text-sm text-gray-400">
+                  {sessao.nota}
+                </td>
+                <td className="py-3 px-4">
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => handleAbrirModalEdicao(sessao)}
+                      className="text-blue-400 hover:text-blue-300"
+                      title="Editar Sessão"
+                    >
+                      <PencilSquareIcon className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => handleAbrirDeleteModal(sessao)}
+                      className="text-red-500 hover:text-red-400"
+                      title="Apagar Sessão"
+                    >
+                      <TrashIcon className="h-5 w-5" />
+                    </button>
+                  </div>
                 </td>
               </tr>
-            )}
+            ))}
           </tbody>
         </table>
       </div>
