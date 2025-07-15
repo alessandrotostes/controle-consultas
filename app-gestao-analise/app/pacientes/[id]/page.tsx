@@ -1,4 +1,5 @@
-"use client"; // Esta diretiva agora se aplica apenas ao componente de cliente
+// 1. A diretiva "use client" agora está dentro do componente de cliente.
+"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/utils/supabaseClient";
@@ -30,10 +31,15 @@ interface Sessao {
 }
 
 // ====================================================================
-// 1. CRIAMOS UM COMPONENTE DE CLIENTE PARA TODA A LÓGICA INTERATIVA
+// 2. Este é o nosso componente de cliente, com toda a lógica.
+// Ele recebe o ID do paciente como uma propriedade simples (prop).
 // ====================================================================
-function PacienteDetalheCliente({ idDoPaciente }: { idDoPaciente: number }) {
-  // Todo o nosso código antigo (states, useEffects, handlers) agora vive aqui dentro.
+export default function PaginaDetalhePaciente({
+  idDoPaciente,
+}: {
+  idDoPaciente: number;
+}) {
+  // States
   const [paciente, setPaciente] = useState<Paciente | null>(null);
   const [sessoes, setSessoes] = useState<Sessao[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -52,6 +58,7 @@ function PacienteDetalheCliente({ idDoPaciente }: { idDoPaciente: number }) {
   const [novaSessaoValor, setNovaSessaoValor] = useState<string>("");
   const [novaSessaoNota, setNovaSessaoNota] = useState<string>("");
 
+  // Funções de Fechar Modais
   const handleFecharModalEdicao = useCallback(() => {
     setIsEditModalOpen(false);
     setSessaoEmEdicao(null);
@@ -64,6 +71,7 @@ function PacienteDetalheCliente({ idDoPaciente }: { idDoPaciente: number }) {
     setIsPacienteModalOpen(false);
   }, []);
 
+  // Busca de Dados - agora depende do idDoPaciente que recebemos
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -84,6 +92,7 @@ function PacienteDetalheCliente({ idDoPaciente }: { idDoPaciente: number }) {
     fetchData();
   }, [idDoPaciente]);
 
+  // Handlers de Ações
   const handleAdicionarSessao = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
@@ -752,27 +761,21 @@ function PacienteDetalheCliente({ idDoPaciente }: { idDoPaciente: number }) {
   );
 }
 
-// ====================================================================
-// 2. A PÁGINA EM SI AGORA É UM COMPONENTE DE SERVIDOR
-//    Ela só valida o ID e passa para o componente de cliente.
-// ====================================================================
-type PageProps = {
+// 3. Este componente de Servidor é o que a Vercel vai "construir".
+// Ele só valida o ID e passa para o componente de Cliente.
+/*
+type PageParams = {
   params: { id: string };
 };
 
-export default function PaginaPaciente({ params }: PageProps) {
+export default function PaginaPaciente({ params }: PageParams) {
   const id = parseInt(params.id);
 
   if (isNaN(id)) {
     return (
       <div className="p-8">
-        <h1 className="text-3xl font-bold text-white">
-          ID de paciente inválido.
-        </h1>
-        <Link
-          href="/pacientes"
-          className="text-blue-400 hover:underline mt-4 inline-block"
-        >
+        <h1 className="text-3xl font-bold text-white">ID de paciente inválido.</h1>
+        <Link href="/pacientes" className="text-blue-400 hover:underline mt-4 inline-block">
           &larr; Voltar para a lista de pacientes
         </Link>
       </div>
@@ -781,3 +784,4 @@ export default function PaginaPaciente({ params }: PageProps) {
 
   return <PacienteDetalheCliente idDoPaciente={id} />;
 }
+*/
