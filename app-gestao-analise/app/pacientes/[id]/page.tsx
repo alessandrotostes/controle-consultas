@@ -4,22 +4,45 @@ import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import { PacienteDetalheCliente } from "@/components/PacienteDetalheCliente";
 import type { Paciente, Sessao } from "@/lib/types";
-import type { Metadata } from "next"; // Importar o tipo Metadata
+import type { Metadata } from "next";
 
-// AÇÃO CORRIGIDA 1: Exportação de METADATA e VIEWPORT separadamente
-// Isso corrige o aviso "Unsupported metadata viewport"
-export const metadata: Metadata = {
-  title: "Detalhes do Paciente",
-  description: "Visualização detalhada do paciente e suas sessões.",
-};
+// REMOVIDO: O 'type Props' foi removido para evitar conflito com os tipos internos do Next.js.
+
+// CORREÇÃO: A tipagem é definida diretamente na assinatura da função.
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const supabase = await createClient();
+  const id = parseInt(params.id);
+
+  if (isNaN(id)) {
+    return { title: "ID Inválido" };
+  }
+
+  const { data: paciente } = await supabase
+    .from("pacientes")
+    .select("nome")
+    .eq("id", id)
+    .single();
+
+  const title = paciente
+    ? `Detalhes de ${paciente.nome}`
+    : "Paciente não encontrado";
+
+  return {
+    title: title,
+    description: "Visualização detalhada do paciente e suas sessões.",
+  };
+}
 
 export const viewport = {
   width: "device-width",
   initialScale: 1,
 };
 
-// AÇÃO CORRIGIDA 2: A função da página continua sendo ASYNC e com tipagem INLINE.
-// Isso corrige os erros sobre 'params' e 'cookies()' não serem "awaited".
+// CORREÇÃO: A tipagem também é definida diretamente aqui.
 export default async function PaginaPaciente({
   params,
 }: {
@@ -44,7 +67,6 @@ export default async function PaginaPaciente({
     );
   }
 
-  // O uso de 'await' aqui é possível porque a função é 'async'
   const { data: paciente, error: pacienteError } = await supabase
     .from("pacientes")
     .select("*")
