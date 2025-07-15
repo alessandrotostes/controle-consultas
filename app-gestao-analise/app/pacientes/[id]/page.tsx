@@ -4,12 +4,10 @@ import Link from "next/link";
 import { PacienteDetalheCliente } from "@/components/PacienteDetalheCliente";
 import type { Paciente, Sessao } from "@/lib/types";
 
-// Tipo para as propriedades da página
 type PageProps = {
   params: { id: string };
 };
 
-// A página é um componente de servidor assíncrono
 export default async function PaginaPaciente({ params }: PageProps) {
   const supabase = createClient();
   const id = parseInt(params.id);
