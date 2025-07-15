@@ -29,7 +29,7 @@ interface Sessao {
   nota: string | null;
 }
 
-// CORREÇÃO: Voltamos a definir o tipo diretamente na função
+// A CORREÇÃO: Definimos o tipo diretamente aqui
 export default function PaginaDetalhePaciente({
   params,
 }: {
