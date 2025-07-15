@@ -1,4 +1,3 @@
-// 1. A diretiva "use client" agora está dentro do componente de cliente.
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -30,14 +29,11 @@ interface Sessao {
   nota: string | null;
 }
 
-// ====================================================================
-// 2. Este é o nosso componente de cliente, com toda a lógica.
-// Ele recebe o ID do paciente como uma propriedade simples (prop).
-// ====================================================================
+// Assinatura da função corrigida para o padrão de deploy
 export default function PaginaDetalhePaciente({
-  idDoPaciente,
+  params,
 }: {
-  idDoPaciente: number;
+  params: { id: string };
 }) {
   // States
   const [paciente, setPaciente] = useState<Paciente | null>(null);
@@ -71,8 +67,13 @@ export default function PaginaDetalhePaciente({
     setIsPacienteModalOpen(false);
   }, []);
 
-  // Busca de Dados - agora depende do idDoPaciente que recebemos
+  // Busca de Dados
   useEffect(() => {
+    const idDoPaciente = parseInt(params.id);
+    if (isNaN(idDoPaciente)) {
+      setLoading(false);
+      return;
+    }
     const fetchData = async () => {
       setLoading(true);
       const { data: pacienteData } = await supabase
@@ -90,7 +91,7 @@ export default function PaginaDetalhePaciente({
       setLoading(false);
     };
     fetchData();
-  }, [idDoPaciente]);
+  }, [params]);
 
   // Handlers de Ações
   const handleAdicionarSessao = useCallback(
@@ -103,6 +104,7 @@ export default function PaginaDetalhePaciente({
         toast.error("Sessão expirada. Faça o login novamente.");
         return;
       }
+      const idDoPaciente = parseInt(params.id);
       const { data: novaSessao, error } = await supabase
         .from("sessoes")
         .insert([
@@ -129,13 +131,7 @@ export default function PaginaDetalhePaciente({
         toast.success("Sessão adicionada com sucesso!");
       }
     },
-    [
-      idDoPaciente,
-      novaSessaoData,
-      novaSessaoNota,
-      novaSessaoTipo,
-      novaSessaoValor,
-    ]
+    [params, novaSessaoData, novaSessaoNota, novaSessaoTipo, novaSessaoValor]
   );
 
   const handleAbrirModalEdicao = useCallback((sessao: Sessao) => {
@@ -760,28 +756,3 @@ export default function PaginaDetalhePaciente({
     </div>
   );
 }
-
-// 3. Este componente de Servidor é o que a Vercel vai "construir".
-// Ele só valida o ID e passa para o componente de Cliente.
-/*
-type PageParams = {
-  params: { id: string };
-};
-
-export default function PaginaPaciente({ params }: PageParams) {
-  const id = parseInt(params.id);
-
-  if (isNaN(id)) {
-    return (
-      <div className="p-8">
-        <h1 className="text-3xl font-bold text-white">ID de paciente inválido.</h1>
-        <Link href="/pacientes" className="text-blue-400 hover:underline mt-4 inline-block">
-          &larr; Voltar para a lista de pacientes
-        </Link>
-      </div>
-    );
-  }
-
-  return <PacienteDetalheCliente idDoPaciente={id} />;
-}
-*/
