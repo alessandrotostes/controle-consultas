@@ -29,11 +29,12 @@ interface Sessao {
   nota: string | null;
 }
 
-export default function PaginaDetalhePaciente({
-  params,
-}: {
+// CORREÇÃO: Definindo o tipo para as propriedades da página
+type PageProps = {
   params: { id: string };
-}) {
+};
+
+export default function PaginaDetalhePaciente({ params }: PageProps) {
   // States
   const [paciente, setPaciente] = useState<Paciente | null>(null);
   const [sessoes, setSessoes] = useState<Sessao[]>([]);
@@ -53,7 +54,6 @@ export default function PaginaDetalhePaciente({
   const [novaSessaoValor, setNovaSessaoValor] = useState<string>("");
   const [novaSessaoNota, setNovaSessaoNota] = useState<string>("");
 
-  // Funções de Fechar Modais
   const handleFecharModalEdicao = useCallback(() => {
     setIsEditModalOpen(false);
     setSessaoEmEdicao(null);
@@ -66,7 +66,6 @@ export default function PaginaDetalhePaciente({
     setIsPacienteModalOpen(false);
   }, []);
 
-  // Busca de Dados
   useEffect(() => {
     const idDoPaciente = parseInt(params.id);
     if (isNaN(idDoPaciente)) {
@@ -75,33 +74,23 @@ export default function PaginaDetalhePaciente({
     }
     const fetchData = async () => {
       setLoading(true);
-      const { data: pacienteData, error: pacienteError } = await supabase
+      const { data: pacienteData } = await supabase
         .from("pacientes")
         .select("*")
         .eq("id", idDoPaciente)
         .single();
-      if (pacienteError) {
-        console.error("Erro ao buscar paciente:", pacienteError);
-        setLoading(false);
-        return;
-      }
       setPaciente(pacienteData as Paciente);
-
-      const { data: sessoesData, error: sessoesError } = await supabase
+      const { data: sessoesData } = await supabase
         .from("sessoes")
         .select("*")
         .eq("paciente_id", idDoPaciente)
         .order("data", { ascending: false });
-      if (sessoesError) {
-        console.error("Erro ao buscar sessões:", sessoesError);
-      }
       setSessoes((sessoesData as Sessao[]) || []);
       setLoading(false);
     };
     fetchData();
   }, [params]);
 
-  // Handlers de Ações
   const handleAdicionarSessao = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
@@ -130,7 +119,6 @@ export default function PaginaDetalhePaciente({
         .single();
       if (error) {
         toast.error("Ocorreu um erro ao adicionar a sessão.");
-        console.error(error);
       } else if (novaSessao) {
         setSessoes((sessoes) => [novaSessao, ...sessoes]);
         setNovaSessaoData("");
@@ -147,7 +135,6 @@ export default function PaginaDetalhePaciente({
     setSessaoEmEdicao({ ...sessao });
     setIsEditModalOpen(true);
   }, []);
-
   const handleSalvarEdicao = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
@@ -183,7 +170,6 @@ export default function PaginaDetalhePaciente({
     setSessaoEmEdicao(sessao);
     setIsDeleteModalOpen(true);
   }, []);
-
   const handleApagarSessao = useCallback(async () => {
     if (!sessaoEmEdicao) return;
     const { error } = await supabase
@@ -313,7 +299,6 @@ export default function PaginaDetalhePaciente({
           </div>
         </div>
       </div>
-
       <div className="my-8 p-6 bg-gray-900 border border-gray-700 rounded-lg">
         <h2 className="text-2xl font-semibold mb-4 text-white">
           Adicionar Nova Sessão
@@ -399,7 +384,6 @@ export default function PaginaDetalhePaciente({
           </div>
         </form>
       </div>
-
       <h2 className="text-2xl font-semibold mb-4 text-white">
         Histórico de Sessões
       </h2>
@@ -512,7 +496,6 @@ export default function PaginaDetalhePaciente({
           </tbody>
         </table>
       </div>
-
       {isEditModalOpen && sessaoEmEdicao && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
           <div className="bg-gray-900 p-8 rounded-lg shadow-2xl w-full max-w-lg border border-gray-700">
@@ -646,7 +629,6 @@ export default function PaginaDetalhePaciente({
           </div>
         </div>
       )}
-
       {isDeleteModalOpen && sessaoEmEdicao && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
           <div className="bg-gray-900 p-8 rounded-lg shadow-2xl w-full max-w-md border border-gray-700">
@@ -682,7 +664,6 @@ export default function PaginaDetalhePaciente({
           </div>
         </div>
       )}
-
       {isPacienteModalOpen && paciente && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
           <div className="bg-gray-900 p-8 rounded-lg shadow-2xl w-full max-w-lg border border-gray-700">
