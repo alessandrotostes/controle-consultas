@@ -3,11 +3,15 @@ import Link from "next/link";
 import { PacienteDetalheCliente } from "@/components/PacienteDetalheCliente";
 import type { Paciente, Sessao } from "@/lib/types";
 
-type PageProps = {
-  params: { id: string };
-};
+// A declaração 'type PageProps' foi removida.
+// A tipagem será feita diretamente na função abaixo.
 
-export default async function PaginaPaciente({ params }: PageProps) {
+// Corrigido aqui: A tipagem dos parâmetros é definida inline.
+export default async function PaginaPaciente({
+  params,
+}: {
+  params: { id: string };
+}) {
   const supabase = createClient();
   const id = parseInt(params.id);
 
