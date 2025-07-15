@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { supabase } from "@/utils/supabaseClient";
+// CORREÇÃO: Importa a FUNÇÃO createClient do caminho correto
+import { createClient } from "@/utils/supabase/client";
 import toast from "react-hot-toast";
 import { TrashIcon } from "@heroicons/react/24/outline";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 // Interface
 interface Paciente {
@@ -16,10 +16,14 @@ interface Paciente {
 }
 
 export default function PaginaPacientes() {
+  // Cria a instância do cliente Supabase aqui
+  const supabase = createClient();
+
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [novoPacienteNome, setNovoPacienteNome] = useState<string>("");
   const [novoPacienteTelefone, setNovoPacienteTelefone] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [pacienteParaApagar, setPacienteParaApagar] = useState<Paciente | null>(
     null
@@ -46,7 +50,7 @@ export default function PaginaPacientes() {
       }
     }
     setLoading(false);
-  }, []);
+  }, [supabase]); // Adicionamos supabase como dependência
 
   useEffect(() => {
     fetchPacientes();
@@ -88,14 +92,12 @@ export default function PaginaPacientes() {
         toast.success("Paciente adicionado com sucesso!");
       }
     },
-    [novoPacienteNome, novoPacienteTelefone, pacientes]
+    [novoPacienteNome, novoPacienteTelefone, pacientes, supabase]
   );
 
-  // Função de Status atualizada para receber o novo status
-  const handleTrocarStatus = useCallback(
-    async (paciente: Paciente, novoStatus: string) => {
-      if (paciente.status === novoStatus) return; // Não faz nada se o status já for o desejado
-
+  const handleToggleStatus = useCallback(
+    async (paciente: Paciente) => {
+      const novoStatus = paciente.status === "Ativo" ? "Inativo" : "Ativo";
       const { data: pacienteAtualizado, error } = await supabase
         .from("pacientes")
         .update({ status: novoStatus })
@@ -118,7 +120,7 @@ export default function PaginaPacientes() {
         );
       }
     },
-    [pacientes]
+    [pacientes, supabase]
   );
 
   const handleAbrirDeleteModal = useCallback((paciente: Paciente) => {
@@ -156,7 +158,7 @@ export default function PaginaPacientes() {
       );
       handleFecharDeleteModal();
     }
-  }, [pacienteParaApagar, handleFecharDeleteModal]);
+  }, [pacienteParaApagar, handleFecharDeleteModal, supabase]);
 
   if (loading)
     return (
@@ -217,50 +219,32 @@ export default function PaginaPacientes() {
             }`}
           >
             <div className="flex items-center gap-4">
-              {/* O Badge de Status agora é o gatilho para o Menu */}
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                  <button
-                    className="flex items-center outline-none rounded-full"
-                    title="Clique para alterar o status"
-                  >
-                    <span
-                      className={`px-2.5 py-1 text-xs font-semibold rounded-full cursor-pointer ${
-                        paciente.status === "Ativo"
-                          ? "bg-green-500/20 text-green-300"
-                          : "bg-gray-500/20 text-gray-400"
-                      }`}
-                    >
-                      {paciente.status}
-                    </span>
-                  </button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content
-                    className="min-w-[140px] bg-gray-700 rounded-md p-1 shadow-lg z-20"
-                    sideOffset={5}
-                  >
-                    <DropdownMenu.Item
-                      onSelect={() => handleTrocarStatus(paciente, "Ativo")}
-                      className="text-gray-200 text-sm rounded flex items-center p-2 select-none outline-none data-[highlighted]:bg-blue-600 data-[highlighted]:text-white cursor-pointer"
-                    >
-                      Ativar
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      onSelect={() => handleTrocarStatus(paciente, "Inativo")}
-                      className="text-gray-200 text-sm rounded flex items-center p-2 select-none outline-none data-[highlighted]:bg-blue-600 data-[highlighted]:text-white cursor-pointer"
-                    >
-                      Inativar
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
+              <span
+                className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
+                  paciente.status === "Ativo"
+                    ? "bg-green-500/20 text-green-300"
+                    : "bg-gray-500/20 text-gray-400"
+                }`}
+              >
+                {paciente.status}
+              </span>
               <div>
                 <p className="font-bold text-white">{paciente.nome}</p>
                 <p className="text-sm text-gray-400">{paciente.telefone}</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
+              <button
+                onClick={() => handleToggleStatus(paciente)}
+                className="text-sm text-gray-400 hover:text-white hover:underline"
+                title={
+                  paciente.status === "Ativo"
+                    ? "Marcar como inativo"
+                    : "Marcar como ativo"
+                }
+              >
+                {paciente.status === "Ativo" ? "Inativar" : "Ativar"}
+              </button>
               <Link
                 href={`/pacientes/${paciente.id}`}
                 className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 font-semibold text-sm"
@@ -317,5 +301,3 @@ export default function PaginaPacientes() {
     </div>
   );
 }
-// This code is a React component for managing patients in a web application.
-// It allows users to add new patients, view existing ones, change their status, and delete them along with their sessions.

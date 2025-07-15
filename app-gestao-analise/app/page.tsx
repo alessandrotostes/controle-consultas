@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/utils/supabaseClient";
+import { useState, useEffect, useCallback } from "react";
+import { createClient } from "@/utils/supabase/client";
+import Link from "next/link";
 import {
   BarChart,
   Bar,
@@ -11,9 +12,8 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import toast from "react-hot-toast"; // Adicionado para consistência
 
-// Interfaces e constantes fora do componente para evitar recriação
+// 1. INTERFACE CORRIGIDA: paciente agora é um array
 interface Paciente {
   nome: string;
 }
@@ -21,9 +21,18 @@ interface SessaoComPaciente {
   data: string;
   valor: number;
   status: string;
-  paciente: Paciente | null;
+  paciente: Paciente[] | null;
 }
-const anosDisponiveis = [2025, 2024, 2023];
+interface DadosGrafico {
+  name: string;
+  Receita: number;
+}
+
+const anosDisponiveis = [
+  new Date().getFullYear(),
+  new Date().getFullYear() - 1,
+  new Date().getFullYear() - 2,
+];
 const nomesDosMeses = [
   "Janeiro",
   "Fevereiro",
@@ -54,6 +63,7 @@ const nomesAbreviadosDosMeses = [
 ];
 
 export default function Dashboard() {
+  const supabase = createClient();
   const [stats, setStats] = useState({
     sessoesRealizadas: 0,
     sessoesAgendadas: 0,
@@ -63,8 +73,7 @@ export default function Dashboard() {
   const [sessoesPendentes, setSessoesPendentes] = useState<SessaoComPaciente[]>(
     []
   );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [dadosGrafico, setDadosGrafico] = useState<any[]>([]);
+  const [dadosGrafico, setDadosGrafico] = useState<DadosGrafico[]>([]);
   const [loading, setLoading] = useState(true);
   const [nomeMes, setNomeMes] = useState("");
   const [anoSelecionado, setAnoSelecionado] = useState(
@@ -72,102 +81,92 @@ export default function Dashboard() {
   );
   const [mesSelecionado, setMesSelecionado] = useState(new Date().getMonth());
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-
-      // CORREÇÃO: Pegamos o usuário logado PRIMEIRO
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      // Se não houver usuário, não fazemos nada
-      if (!user) {
-        setLoading(false);
-        toast.error("Sessão não encontrada. Faça o login novamente.");
-        return;
-      }
-
-      const primeiroDiaDoMes = new Date(anoSelecionado, mesSelecionado, 1);
-      const ultimoDiaDoMes = new Date(anoSelecionado, mesSelecionado + 1, 0);
-      const dataDeReferencia = new Date(anoSelecionado, mesSelecionado, 1);
-      const nomeDoMesAtual = dataDeReferencia.toLocaleString("pt-BR", {
-        month: "long",
-        year: "numeric",
-      });
-      setNomeMes(
-        nomeDoMesAtual.charAt(0).toUpperCase() + nomeDoMesAtual.slice(1)
-      );
-
-      // Busca 1: Dados do mês com o filtro de user_id
-      const { data: dataMes, error: errorMes } = await supabase
-        .from("sessoes")
-        .select("data, valor, status, paciente:pacientes(nome)")
-        .eq("user_id", user.id)
-        .gte("data", primeiroDiaDoMes.toISOString())
-        .lte("data", ultimoDiaDoMes.toISOString());
-
-      // Busca 2: Dados do ano com o filtro de user_id
-      const primeiroDiaDoAno = new Date(anoSelecionado, 0, 1);
-      const ultimoDiaDoAno = new Date(anoSelecionado, 11, 31);
-      const { data: dataAno, error: errorAno } = await supabase
-        .from("sessoes")
-        .select("data, valor")
-        .eq("user_id", user.id)
-        .eq("status", "Paga")
-        .gte("data", primeiroDiaDoAno.toISOString())
-        .lte("data", ultimoDiaDoAno.toISOString());
-
-      if (errorMes || errorAno) {
-        console.error("Erro ao buscar dados:", errorMes || errorAno);
-      } else {
-        // Lógica de cálculo (sem mudanças)
-        let valorRecebidoCalc = 0,
-          valorPendenteCalc = 0,
-          sessoesRealizadasCount = 0,
-          sessoesAgendadasCount = 0;
-        const dataDeHoje = new Date();
-        dataDeHoje.setHours(0, 0, 0, 0);
-        for (const sessao of dataMes) {
-          if (sessao.status === "Paga") valorRecebidoCalc += sessao.valor;
-          else if (
-            sessao.status === "Pendente" ||
-            sessao.status === "Cancelado"
-          )
-            valorPendenteCalc += sessao.valor;
-          if (sessao.status !== "Cancelado") {
-            const dataSessao = new Date(sessao.data + "T00:00:00Z");
-            if (dataSessao <= dataDeHoje) sessoesRealizadasCount++;
-            else sessoesAgendadasCount++;
-          }
-        }
-        setStats({
-          sessoesRealizadas: sessoesRealizadasCount,
-          sessoesAgendadas: sessoesAgendadasCount,
-          valorRecebido: valorRecebidoCalc,
-          valorPendente: valorPendenteCalc,
-        });
-        const pendentes = dataMes.filter(
-          (s) => s.status === "Pendente" || s.status === "Cancelado"
-        );
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setSessoesPendentes(pendentes as any);
-
-        const totaisMensais = Array(12).fill(0);
-        for (const sessao of dataAno) {
-          const mesDaSessao = new Date(sessao.data + "T00:00:00Z").getMonth();
-          totaisMensais[mesDaSessao] += sessao.valor;
-        }
-        const dadosFormatadosGrafico = nomesAbreviadosDosMeses.map(
-          (nome, index) => ({ name: nome, Receita: totaisMensais[index] })
-        );
-        setDadosGrafico(dadosFormatadosGrafico);
-      }
+  const fetchMonthlyData = useCallback(async () => {
+    setLoading(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
       setLoading(false);
-    };
+      return;
+    }
 
-    fetchData();
-  }, [anoSelecionado, mesSelecionado]);
+    const primeiroDiaDoMes = new Date(anoSelecionado, mesSelecionado, 1);
+    const ultimoDiaDoMes = new Date(anoSelecionado, mesSelecionado + 1, 0);
+    const dataDeReferencia = new Date(anoSelecionado, mesSelecionado, 1);
+    const nomeDoMesAtual = dataDeReferencia.toLocaleString("pt-BR", {
+      month: "long",
+      year: "numeric",
+    });
+    setNomeMes(
+      nomeDoMesAtual.charAt(0).toUpperCase() + nomeDoMesAtual.slice(1)
+    );
+
+    const { data: dataMes, error: errorMes } = await supabase
+      .from("sessoes")
+      .select("data, valor, status, paciente:pacientes(nome)")
+      .eq("user_id", user.id)
+      .gte("data", primeiroDiaDoMes.toISOString())
+      .lte("data", ultimoDiaDoMes.toISOString());
+
+    const primeiroDiaDoAno = new Date(anoSelecionado, 0, 1);
+    const ultimoDiaDoAno = new Date(anoSelecionado, 11, 31);
+    const { data: dataAno, error: errorAno } = await supabase
+      .from("sessoes")
+      .select("data, valor")
+      .eq("user_id", user.id)
+      .eq("status", "Paga")
+      .gte("data", primeiroDiaDoAno.toISOString())
+      .lte("data", ultimoDiaDoAno.toISOString());
+
+    if (errorMes || errorAno) {
+      console.error("Erro ao buscar dados:", errorMes || errorAno);
+    } else {
+      let valorRecebidoCalc = 0,
+        valorPendenteCalc = 0,
+        sessoesRealizadasCount = 0,
+        sessoesAgendadasCount = 0;
+      const dataDeHoje = new Date();
+      dataDeHoje.setHours(0, 0, 0, 0);
+
+      for (const sessao of dataMes) {
+        if (sessao.status === "Paga") valorRecebidoCalc += sessao.valor;
+        else if (sessao.status === "Pendente" || sessao.status === "Cancelado")
+          valorPendenteCalc += sessao.valor;
+        if (sessao.status !== "Cancelado") {
+          const dataSessao = new Date(sessao.data + "T00:00:00Z");
+          if (dataSessao <= dataDeHoje) sessoesRealizadasCount++;
+          else sessoesAgendadasCount++;
+        }
+      }
+      setStats({
+        sessoesRealizadas: sessoesRealizadasCount,
+        sessoesAgendadas: sessoesAgendadasCount,
+        valorRecebido: valorRecebidoCalc,
+        valorPendente: valorPendenteCalc,
+      });
+
+      const pendentes = dataMes.filter(
+        (s) => s.status === "Pendente" || s.status === "Cancelado"
+      );
+      setSessoesPendentes(pendentes as SessaoComPaciente[]);
+
+      const totaisMensais = Array(12).fill(0);
+      for (const sessao of dataAno) {
+        const mesDaSessao = new Date(sessao.data + "T00:00:00Z").getMonth();
+        totaisMensais[mesDaSessao] += sessao.valor;
+      }
+      const dadosFormatadosGrafico = nomesAbreviadosDosMeses.map(
+        (nome, index) => ({ name: nome, Receita: totaisMensais[index] })
+      );
+      setDadosGrafico(dadosFormatadosGrafico);
+    }
+    setLoading(false);
+  }, [anoSelecionado, mesSelecionado, supabase]);
+
+  useEffect(() => {
+    fetchMonthlyData();
+  }, [fetchMonthlyData]);
 
   if (loading)
     return (
@@ -206,6 +205,7 @@ export default function Dashboard() {
         </div>
       </div>
       <p className="text-lg text-gray-400 mb-8">Exibindo resumo de {nomeMes}</p>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
         <div className="bg-gray-900/50 backdrop-blur-sm p-4 md:p-6 rounded-xl shadow-lg border border-gray-700/50">
           <h2 className="text-base md:text-lg font-semibold text-gray-400 mb-2">
@@ -240,6 +240,7 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
+
       <div className="mt-10">
         <h2 className="text-2xl font-semibold mb-4 text-white">
           Receita Mensal (Sessões Pagas) em {anoSelecionado}
@@ -268,6 +269,7 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
       </div>
+
       <div className="mt-10">
         <h2 className="text-2xl font-semibold mb-4 text-white">
           Lançamentos Pendentes no Mês
@@ -294,8 +296,9 @@ export default function Dashboard() {
               {sessoesPendentes.length > 0 ? (
                 sessoesPendentes.map((sessao, index) => (
                   <tr key={index} className="border-t border-gray-700">
+                    {/* 3. CORREÇÃO: Acessamos o primeiro item do array */}
                     <td className="py-3 px-4 font-medium">
-                      {sessao.paciente?.nome || "Paciente não encontrado"}
+                      {sessao.paciente?.[0]?.nome || "Paciente não encontrado"}
                     </td>
                     <td className="py-3 px-4">
                       {new Date(sessao.data + "T00:00:00Z").toLocaleDateString(
@@ -319,7 +322,7 @@ export default function Dashboard() {
                   </tr>
                 ))
               ) : (
-                <tr>
+                <tr className="border-t border-gray-700">
                   <td colSpan={4} className="text-center py-6 text-gray-500">
                     Nenhuma pendência este mês!
                   </td>
@@ -328,6 +331,15 @@ export default function Dashboard() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="mt-10 mb-6">
+        <Link
+          href="/pacientes"
+          className="inline-block px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors"
+        >
+          Gerenciar Pacientes e Sessões
+        </Link>
       </div>
     </div>
   );

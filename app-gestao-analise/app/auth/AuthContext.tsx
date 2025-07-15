@@ -8,7 +8,8 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { supabase } from "@/utils/supabaseClient";
+// A CORREÇÃO ESTÁ AQUI: Importamos o cliente do novo caminho
+import { createClient } from "@/utils/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 
 // Define o formato do nosso contexto
@@ -27,6 +28,8 @@ const AuthContext = createContext<AuthContextType>({
 
 // Cria o nosso "Provedor" de autenticação
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // Criamos uma instância do cliente do NAVEGADOR aqui
+  const supabase = createClient();
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase]); // Adicionamos supabase às dependências
 
   const value = {
     session,

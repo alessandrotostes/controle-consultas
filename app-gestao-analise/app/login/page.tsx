@@ -2,15 +2,20 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/utils/supabaseClient";
+// 1. CORREÇÃO: Importamos a FUNÇÃO createClient do caminho correto
+import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 export default function LoginPage() {
+  // 2. CORREÇÃO: Criamos a instância do cliente dentro do componente
+  const supabase = createClient();
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -22,19 +27,17 @@ export default function LoginPage() {
       password,
     });
 
+    setLoading(false);
+
     if (error) {
-      setError(error.message);
-      setLoading(false);
+      setError("Email ou senha inválidos."); // Mensagem mais amigável
     } else {
-      // Se o login for bem-sucedido, o Next.js tem um sistema de cache que pode
-      // não atualizar a página imediatamente. O "push" para a mesma página força
-      // o layout a reavaliar o estado de autenticação.
-      router.push("/");
+      toast.success("Login bem-sucedido!");
+      router.push("/"); // Redireciona para o Dashboard
     }
   };
 
   return (
-    // Centraliza o formulário na tela
     <div className="flex items-center justify-center min-h-screen bg-gray-900">
       <div className="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-lg shadow-lg">
         <h1 className="text-2xl font-bold text-center text-white">
@@ -86,13 +89,12 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-500"
+              className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-500 disabled:cursor-not-allowed"
             >
               {loading ? "Entrando..." : "Entrar"}
             </button>
           </div>
         </form>
-        {/* Adicionaremos um link para a página de cadastro em breve */}
       </div>
     </div>
   );

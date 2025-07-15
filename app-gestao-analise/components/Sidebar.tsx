@@ -1,4 +1,3 @@
-// components/Sidebar.tsx
 "use client";
 
 import Link from "next/link";
@@ -7,8 +6,8 @@ import {
   XMarkIcon,
   ArrowRightOnRectangleIcon,
 } from "@heroicons/react/24/outline";
-import { supabase } from "@/utils/supabaseClient";
-import { useAuth } from "@/app/auth/AuthContext"; // Importamos o useAuth
+import { createClient } from "@/utils/supabase/client"; // 1. Importa a função correta
+import { useAuth } from "@/app/auth/AuthContext";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -18,11 +17,14 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth(); // Pegamos os dados do usuário logado
+  const { user } = useAuth();
+  const supabase = createClient(); // 2. Cria a instância do cliente aqui
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push("/login"); // Redireciona para o login após sair
+    router.push("/login");
+    // Adicionamos um reload para garantir que o estado seja limpo em toda a aplicação
+    window.location.reload();
   };
 
   const linkClasses = "flex items-center p-2 rounded-md transition-colors";
@@ -80,23 +82,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </nav>
 
         <div className="mt-auto">
-          {/* Mostra o email do usuário logado */}
           <div className="flex items-center p-2 border-t border-gray-700 min-w-0">
-            {" "}
-            {/* Adicionado min-w-0 */}
             <span className="mr-3 flex-shrink-0">👤</span>
             <div className="flex-grow min-w-0">
-              {" "}
-              {/* Adicionado flex-grow e min-w-0 */}
               <p
-                className="font-semibold text-sm truncate" // A mágica está aqui!
+                className="font-semibold text-sm truncate"
                 title={user?.email || "Usuário"}
               >
                 {user?.email}
               </p>
             </div>
           </div>
-          {/* Botão Sair */}
           <button
             onClick={handleLogout}
             className={`${linkClasses} ${inactiveClasses} w-full mt-2`}
