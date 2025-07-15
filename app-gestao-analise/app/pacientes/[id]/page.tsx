@@ -53,7 +53,6 @@ export default function PaginaDetalhePaciente({
   const [novaSessaoValor, setNovaSessaoValor] = useState<string>("");
   const [novaSessaoNota, setNovaSessaoNota] = useState<string>("");
 
-  // Funções de Fechar Modais
   const handleFecharModalEdicao = useCallback(() => {
     setIsEditModalOpen(false);
     setSessaoEmEdicao(null);
@@ -66,7 +65,6 @@ export default function PaginaDetalhePaciente({
     setIsPacienteModalOpen(false);
   }, []);
 
-  // Busca de Dados
   useEffect(() => {
     const idDoPaciente = parseInt(params.id);
     if (isNaN(idDoPaciente)) {
@@ -92,18 +90,23 @@ export default function PaginaDetalhePaciente({
     fetchData();
   }, [params]);
 
-  // Handlers de Ações
   const handleAdicionarSessao = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+
+      if (!paciente) {
+        toast.error("Dados do paciente não carregados.");
+        return;
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
-        toast.error("Sessão expirada. Faça o login novamente.");
+        toast.error("Sessão expirada.");
         return;
       }
-      const idDoPaciente = parseInt(params.id);
+
       const { data: novaSessao, error } = await supabase
         .from("sessoes")
         .insert([
@@ -112,13 +115,14 @@ export default function PaginaDetalhePaciente({
             tipo: novaSessaoTipo,
             valor: parseFloat(novaSessaoValor),
             status: "Pendente",
-            paciente_id: idDoPaciente,
+            paciente_id: paciente.id,
             nota: novaSessaoNota,
             user_id: user.id,
           },
         ])
         .select()
         .single();
+
       if (error) {
         toast.error("Ocorreu um erro ao adicionar a sessão.");
       } else if (novaSessao) {
@@ -130,7 +134,7 @@ export default function PaginaDetalhePaciente({
         toast.success("Sessão adicionada com sucesso!");
       }
     },
-    [params, novaSessaoData, novaSessaoNota, novaSessaoTipo, novaSessaoValor]
+    [paciente, novaSessaoData, novaSessaoNota, novaSessaoTipo, novaSessaoValor]
   );
 
   const handleAbrirModalEdicao = useCallback((sessao: Sessao) => {
