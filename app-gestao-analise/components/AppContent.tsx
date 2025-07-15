@@ -1,5 +1,5 @@
 // components/AppContent.tsx
-"use client"; // A diretiva "use client" fica AQUI agora.
+"use client";
 
 import { useAuth } from "@/app/auth/AuthContext";
 import Sidebar from "@/components/Sidebar";
@@ -14,36 +14,38 @@ export function AppContent({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
+    // Não faz nada enquanto o estado de autenticação está sendo carregado
     if (loading) return;
 
-    const isAuthPage = pathname === "/login";
+    const isLoginPage = pathname === "/login";
 
-    if (!session && !isAuthPage) {
+    // Se não há sessão (usuário não logado) E a página atual NÃO é a de login, redireciona para o login
+    if (!session && !isLoginPage) {
       router.push("/login");
     }
 
-    if (session && isAuthPage) {
+    // Se HÁ sessão (usuário logado) E a página atual é a de login, redireciona para o Dashboard
+    if (session && isLoginPage) {
       router.push("/");
     }
   }, [session, loading, router, pathname]);
 
-  // Enquanto carrega ou se o redirecionamento ainda não aconteceu,
-  // renderiza uma tela de carregamento ou a própria página de login.
-  if (loading || (!session && pathname !== "/login")) {
-    // Para a página de login, permite que os children (a página de login) sejam renderizados.
-    if (pathname === "/login") {
-      return <>{children}</>;
-    }
-    // Para outras páginas, mostra um carregamento centralizado.
+  // --- LÓGICA DE RENDERIZAÇÃO CORRIGIDA ---
+
+  const isLoginPage = pathname === "/login";
+
+  // 1. Enquanto a sessão está sendo verificada, mostramos uma tela de carregamento.
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900">
-        <p className="text-white">Carregando...</p>
+        <p className="text-white">Carregando sessão...</p>
       </div>
     );
   }
 
-  // Se o usuário está logado e não está na página de login, mostra o layout completo do app.
-  if (session && pathname !== "/login") {
+  // 2. Se o usuário ESTÁ logado, mostramos o layout principal do aplicativo.
+  if (session) {
+    // Se ele estiver na página de login, o useEffect acima já vai redirecioná-lo.
     return (
       <div className="flex h-screen">
         <Sidebar
@@ -60,11 +62,16 @@ export function AppContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Se o usuário está logado, mas a página é a de login, permite a renderização
-  // para que o useEffect possa redirecionar.
-  if (session && pathname === "/login") {
+  // 3. Se o usuário NÃO está logado E está na página de login, mostramos a página de login.
+  if (!session && isLoginPage) {
     return <>{children}</>;
   }
 
-  return null; // Caso de fallback
+  // 4. Se o usuário NÃO está logado e NÃO está na página de login, o useEffect está
+  //    redirecionando. Mostramos uma tela de espera para evitar piscar conteúdo.
+  return (
+    <div className="flex items-center justify-center h-screen bg-gray-900">
+      <p className="text-white">Redirecionando...</p>
+    </div>
+  );
 }
