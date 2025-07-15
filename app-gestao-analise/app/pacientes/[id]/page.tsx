@@ -29,12 +29,12 @@ interface Sessao {
   nota: string | null;
 }
 
-// CORREÇÃO: Definindo o tipo para as propriedades da página
-type PageProps = {
+// CORREÇÃO: Voltamos a definir o tipo diretamente na função
+export default function PaginaDetalhePaciente({
+  params,
+}: {
   params: { id: string };
-};
-
-export default function PaginaDetalhePaciente({ params }: PageProps) {
+}) {
   // States
   const [paciente, setPaciente] = useState<Paciente | null>(null);
   const [sessoes, setSessoes] = useState<Sessao[]>([]);
