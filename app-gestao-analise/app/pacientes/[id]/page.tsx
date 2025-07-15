@@ -15,8 +15,10 @@ export default async function PaginaPaciente({ params }: PageProps) {
 
   if (isNaN(id)) {
     return (
-      <div className="p-8 text-white">
-        <h1 className="text-2xl">ID de paciente inválido.</h1>
+      <div className="p-8">
+        <h1 className="text-3xl font-bold text-white">
+          ID de paciente inválido.
+        </h1>
         <Link
           href="/pacientes"
           className="text-blue-400 hover:underline mt-4 inline-block"
@@ -32,6 +34,7 @@ export default async function PaginaPaciente({ params }: PageProps) {
     .select("*")
     .eq("id", id)
     .single();
+
   const { data: sessoes, error: sessoesError } = await supabase
     .from("sessoes")
     .select("*")
@@ -41,8 +44,10 @@ export default async function PaginaPaciente({ params }: PageProps) {
   if (pacienteError || !paciente) {
     console.error("Erro ao buscar paciente:", pacienteError);
     return (
-      <div className="p-8 text-white">
-        <h1 className="text-2xl">Paciente não encontrado.</h1>
+      <div className="p-8">
+        <h1 className="text-3xl font-bold text-white">
+          Paciente não encontrado.
+        </h1>
         <Link
           href="/pacientes"
           className="text-blue-400 hover:underline mt-4 inline-block"
@@ -51,6 +56,12 @@ export default async function PaginaPaciente({ params }: PageProps) {
         </Link>
       </div>
     );
+  }
+
+  // CORREÇÃO: Usando a variável para tratar um possível erro
+  if (sessoesError) {
+    console.error("Erro ao buscar sessões:", sessoesError);
+    // Mesmo com erro, renderizamos a página com a lista de sessões vazia
   }
 
   return (
