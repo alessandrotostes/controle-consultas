@@ -34,7 +34,6 @@ export default function PaginaDetalhePaciente({
 }: {
   params: { id: string };
 }) {
-  // States
   const [paciente, setPaciente] = useState<Paciente | null>(null);
   const [sessoes, setSessoes] = useState<Sessao[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -66,39 +65,41 @@ export default function PaginaDetalhePaciente({
   }, []);
 
   useEffect(() => {
-    const idDoPaciente = parseInt(params.id);
-    if (isNaN(idDoPaciente)) {
-      setLoading(false);
-      return;
+    // A CORREÇÃO: Verificamos se `params.id` existe antes de usá-lo.
+    if (params.id) {
+      const idDoPaciente = parseInt(params.id);
+      if (isNaN(idDoPaciente)) {
+        setLoading(false);
+        return;
+      }
+
+      const fetchData = async () => {
+        setLoading(true);
+        const { data: pacienteData } = await supabase
+          .from("pacientes")
+          .select("*")
+          .eq("id", idDoPaciente)
+          .single();
+        setPaciente(pacienteData as Paciente);
+        const { data: sessoesData } = await supabase
+          .from("sessoes")
+          .select("*")
+          .eq("paciente_id", idDoPaciente)
+          .order("data", { ascending: false });
+        setSessoes((sessoesData as Sessao[]) || []);
+        setLoading(false);
+      };
+      fetchData();
     }
-    const fetchData = async () => {
-      setLoading(true);
-      const { data: pacienteData } = await supabase
-        .from("pacientes")
-        .select("*")
-        .eq("id", idDoPaciente)
-        .single();
-      setPaciente(pacienteData as Paciente);
-      const { data: sessoesData } = await supabase
-        .from("sessoes")
-        .select("*")
-        .eq("paciente_id", idDoPaciente)
-        .order("data", { ascending: false });
-      setSessoes((sessoesData as Sessao[]) || []);
-      setLoading(false);
-    };
-    fetchData();
-  }, [params]);
+  }, [params]); // A dependência no objeto `params` inteiro continua correta.
 
   const handleAdicionarSessao = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-
       if (!paciente) {
         toast.error("Dados do paciente não carregados.");
         return;
       }
-
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -141,6 +142,7 @@ export default function PaginaDetalhePaciente({
     setSessaoEmEdicao({ ...sessao });
     setIsEditModalOpen(true);
   }, []);
+
   const handleSalvarEdicao = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
@@ -176,6 +178,7 @@ export default function PaginaDetalhePaciente({
     setSessaoEmEdicao(sessao);
     setIsDeleteModalOpen(true);
   }, []);
+
   const handleApagarSessao = useCallback(async () => {
     if (!sessaoEmEdicao) return;
     const { error } = await supabase
