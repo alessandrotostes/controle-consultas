@@ -21,7 +21,7 @@ interface SessaoComPaciente {
   data: string;
   valor: number;
   status: string;
-  paciente: Paciente[] | null;
+  paciente: Paciente | null;
 }
 interface DadosGrafico {
   name: string;
@@ -149,7 +149,14 @@ export default function Dashboard() {
       const pendentes = dataMes.filter(
         (s) => s.status === "Pendente" || s.status === "Cancelado"
       );
-      setSessoesPendentes(pendentes as SessaoComPaciente[]);
+      setSessoesPendentes(
+        pendentes.map((sessao) => ({
+          ...sessao,
+          paciente: Array.isArray(sessao.paciente)
+            ? sessao.paciente[0] || null
+            : sessao.paciente || null,
+        }))
+      );
 
       const totaisMensais = Array(12).fill(0);
       for (const sessao of dataAno) {
@@ -298,7 +305,7 @@ export default function Dashboard() {
                   <tr key={index} className="border-t border-gray-700">
                     {/* 3. CORREÇÃO: Acessamos o primeiro item do array */}
                     <td className="py-3 px-4 font-medium">
-                      {sessao.paciente?.[0]?.nome || "Paciente não encontrado"}
+                      {sessao.paciente?.nome || "Paciente não encontrado"}
                     </td>
                     <td className="py-3 px-4">
                       {new Date(sessao.data + "T00:00:00Z").toLocaleDateString(
