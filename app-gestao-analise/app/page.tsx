@@ -12,8 +12,10 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+// NOVO: Importamos as funções para formatar a data corretamente
+import { format, parseISO } from "date-fns";
 
-// 1. INTERFACE CORRIGIDA: paciente agora é um array
+// CORRIGIDO: A interface agora espera que 'paciente' seja um único objeto
 interface Paciente {
   nome: string;
 }
@@ -131,10 +133,11 @@ export default function Dashboard() {
 
       for (const sessao of dataMes) {
         if (sessao.status === "Paga") valorRecebidoCalc += sessao.valor;
-        else if (sessao.status === "Pendente" || sessao.status === "Cancelado")
+        else if (sessao.status === "Pendente")
           valorPendenteCalc += sessao.valor;
+
         if (sessao.status !== "Cancelado") {
-          const dataSessao = new Date(sessao.data + "T00:00:00Z");
+          const dataSessao = parseISO(sessao.data);
           if (dataSessao <= dataDeHoje) sessoesRealizadasCount++;
           else sessoesAgendadasCount++;
         }
@@ -146,21 +149,20 @@ export default function Dashboard() {
         valorPendente: valorPendenteCalc,
       });
 
-      const pendentes = dataMes.filter(
-        (s) => s.status === "Pendente" || s.status === "Cancelado"
-      );
-      setSessoesPendentes(
-        pendentes.map((sessao) => ({
-          ...sessao,
-          paciente: Array.isArray(sessao.paciente)
-            ? sessao.paciente[0] || null
-            : sessao.paciente || null,
-        }))
-      );
+      const pendentes = dataMes
+        .filter((s) => s.status === "Pendente" || s.status === "Cancelado")
+        .map((s) => ({
+          ...s,
+          paciente: Array.isArray(s.paciente)
+            ? s.paciente[0] || null
+            : s.paciente,
+        }));
+
+      setSessoesPendentes(pendentes as SessaoComPaciente[]);
 
       const totaisMensais = Array(12).fill(0);
       for (const sessao of dataAno) {
-        const mesDaSessao = new Date(sessao.data + "T00:00:00Z").getMonth();
+        const mesDaSessao = parseISO(sessao.data).getMonth();
         totaisMensais[mesDaSessao] += sessao.valor;
       }
       const dadosFormatadosGrafico = nomesAbreviadosDosMeses.map(
@@ -303,14 +305,13 @@ export default function Dashboard() {
               {sessoesPendentes.length > 0 ? (
                 sessoesPendentes.map((sessao, index) => (
                   <tr key={index} className="border-t border-gray-700">
-                    {/* 3. CORREÇÃO: Acessamos o primeiro item do array */}
                     <td className="py-3 px-4 font-medium">
+                      {/* CORRIGIDO: Acessa o nome do paciente diretamente */}
                       {sessao.paciente?.nome || "Paciente não encontrado"}
                     </td>
                     <td className="py-3 px-4">
-                      {new Date(sessao.data + "T00:00:00Z").toLocaleDateString(
-                        "pt-BR"
-                      )}
+                      {/* CORRIGIDO: Formata a data sem erro de fuso horário */}
+                      {format(parseISO(sessao.data), "dd/MM/yyyy")}
                     </td>
                     <td className="py-3 px-4">
                       R$ {sessao.valor.toFixed(2).replace(".", ",")}
